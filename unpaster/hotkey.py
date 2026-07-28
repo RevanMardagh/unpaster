@@ -8,6 +8,9 @@ in the input pipeline and fires in both windowed and full-screen cases.
 
 from __future__ import annotations
 
+import ctypes
+import threading
+from ctypes import wintypes
 from dataclasses import dataclass
 
 MOD_ORDER = ("ctrl", "alt", "shift", "win")
@@ -115,3 +118,195 @@ class ModifierTracker:
     @property
     def mods(self) -> frozenset[str]:
         return frozenset(MOD_VKS[vk] for vk in self._down)
+
+
+VK_ESCAPE = 0x1B
+
+WH_KEYBOARD_LL = 13
+WM_KEYDOWN = 0x0100
+WM_KEYUP = 0x0101
+WM_SYSKEYDOWN = 0x0104
+WM_SYSKEYUP = 0x0105
+WM_QUIT = 0x0012
+WM_TIMER = 0x0113
+LLKHF_INJECTED = 0x10
+HC_ACTION = 0
+
+REINSTALL_INTERVAL_MS = 60_000
+_REINSTALL_TIMER_ID = 1
+
+
+class HookInstallError(Exception):
+    """SetWindowsHookExW failed."""
+
+
+class HookLogic:
+    """Decides what to do with each key event. No Windows calls, no Qt."""
+
+    def __init__(self, hk: Hotkey) -> None:
+        self._hotkey = hk
+        self._tracker = ModifierTracker()
+        self.armed = False
+
+    def set_hotkey(self, hk: Hotkey) -> None:
+        self._hotkey = hk
+        self._tracker.reset()
+
+    def on_key(self, vk: int, is_down: bool, injected: bool) -> str:
+        """Return "hotkey", "escape", or "pass"."""
+        if injected:
+            # Our own SendInput output must never feed back into the hook.
+            return "pass"
+
+        if vk in MOD_VKS:
+            if is_down:
+                self._tracker.press(vk)
+            else:
+                self._tracker.release(vk)
+            return "pass"
+
+        if vk == VK_ESCAPE and self.armed:
+            return "escape"
+
+        if is_down and self._hotkey.matches(vk, self._tracker.mods):
+            return "hotkey"
+
+        return "pass"
+
+
+class _KbdLlHookStruct(ctypes.Structure):
+    _fields_ = [
+        ("vkCode", wintypes.DWORD),
+        ("scanCode", wintypes.DWORD),
+        ("flags", wintypes.DWORD),
+        ("time", wintypes.DWORD),
+        ("dwExtraInfo", ctypes.c_void_p),
+    ]
+
+
+_LRESULT = ctypes.c_ssize_t
+_HOOKPROC = ctypes.WINFUNCTYPE(_LRESULT, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM)
+
+_user32 = ctypes.WinDLL("user32", use_last_error=True)
+_kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+_user32.SetWindowsHookExW.argtypes = [ctypes.c_int, _HOOKPROC, wintypes.HINSTANCE, wintypes.DWORD]
+_user32.SetWindowsHookExW.restype = wintypes.HHOOK
+_user32.UnhookWindowsHookEx.argtypes = [wintypes.HHOOK]
+_user32.UnhookWindowsHookEx.restype = wintypes.BOOL
+_user32.CallNextHookEx.argtypes = [wintypes.HHOOK, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM]
+_user32.CallNextHookEx.restype = _LRESULT
+_user32.GetMessageW.argtypes = [ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT]
+_user32.GetMessageW.restype = wintypes.BOOL
+_user32.PostThreadMessageW.argtypes = [wintypes.DWORD, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+_user32.PostThreadMessageW.restype = wintypes.BOOL
+_user32.SetTimer.argtypes = [wintypes.HWND, ctypes.c_void_p, wintypes.UINT, ctypes.c_void_p]
+_user32.SetTimer.restype = ctypes.c_void_p
+_user32.KillTimer.argtypes = [wintypes.HWND, ctypes.c_void_p]
+_user32.KillTimer.restype = wintypes.BOOL
+_kernel32.GetCurrentThreadId.restype = wintypes.DWORD
+
+
+class KeyboardHook:
+    """Runs a WH_KEYBOARD_LL hook on a dedicated thread with a message loop.
+
+    The hook is reinstalled every 60 seconds. Windows offers no way to ask
+    whether a hook is still alive -- an idle hook and a hook the OS dropped
+    for being slow look identical -- so liveness is guaranteed by reinstalling
+    rather than inferred from a probe. The reinstall runs on the hook thread,
+    so there is no race with the callback.
+    """
+
+    def __init__(self, hk: Hotkey, on_hotkey, on_escape) -> None:
+        self.logic = HookLogic(hk)
+        self._on_hotkey = on_hotkey
+        self._on_escape = on_escape
+        self._thread: threading.Thread | None = None
+        self._thread_id = 0
+        self._handle = None
+        self._ready = threading.Event()
+        self._error: BaseException | None = None
+        # A reference must outlive the hook or the trampoline is collected.
+        self._callback = _HOOKPROC(self._dispatch)
+
+    def start(self) -> None:
+        self._ready.clear()
+        self._error = None
+        self._thread = threading.Thread(target=self._run, name="unpaster-hook", daemon=True)
+        self._thread.start()
+        self._ready.wait(timeout=5.0)
+        if self._error is not None:
+            raise self._error
+
+    def stop(self) -> None:
+        if self._thread_id:
+            _user32.PostThreadMessageW(self._thread_id, WM_QUIT, 0, 0)
+        if self._thread is not None:
+            self._thread.join(timeout=5.0)
+        self._thread = None
+        self._thread_id = 0
+
+    def is_running(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
+
+    def set_hotkey(self, hk: Hotkey) -> None:
+        self.logic.set_hotkey(hk)
+
+    def set_armed(self, armed: bool) -> None:
+        self.logic.armed = armed
+
+    def _install(self) -> None:
+        handle = _user32.SetWindowsHookExW(WH_KEYBOARD_LL, self._callback, None, 0)
+        if not handle:
+            raise HookInstallError(
+                f"SetWindowsHookExW failed with error {ctypes.get_last_error()}"
+            )
+        self._handle = handle
+
+    def _uninstall(self) -> None:
+        if self._handle:
+            _user32.UnhookWindowsHookEx(self._handle)
+            self._handle = None
+
+    def _run(self) -> None:
+        self._thread_id = int(_kernel32.GetCurrentThreadId())
+        try:
+            self._install()
+        except BaseException as exc:
+            self._error = exc
+            self._ready.set()
+            return
+
+        _user32.SetTimer(None, _REINSTALL_TIMER_ID, REINSTALL_INTERVAL_MS, None)
+        self._ready.set()
+
+        message = wintypes.MSG()
+        while _user32.GetMessageW(ctypes.byref(message), None, 0, 0) > 0:
+            if message.message == WM_TIMER:
+                self._uninstall()
+                try:
+                    self._install()
+                except HookInstallError:
+                    pass  # Next tick tries again; the app stays usable from the tray.
+
+        _user32.KillTimer(None, _REINSTALL_TIMER_ID)
+        self._uninstall()
+
+    def _dispatch(self, code, wparam, lparam):
+        """Hook callback. Must return in well under a millisecond."""
+        if code != HC_ACTION:
+            return _user32.CallNextHookEx(None, code, wparam, lparam)
+
+        info = ctypes.cast(lparam, ctypes.POINTER(_KbdLlHookStruct)).contents
+        is_down = wparam in (WM_KEYDOWN, WM_SYSKEYDOWN)
+        injected = bool(info.flags & LLKHF_INJECTED)
+
+        action = self.logic.on_key(int(info.vkCode), is_down, injected)
+
+        if action == "hotkey":
+            self._on_hotkey()
+            return 1
+        if action == "escape":
+            self._on_escape()
+            return 1
+        return _user32.CallNextHookEx(None, code, wparam, lparam)
