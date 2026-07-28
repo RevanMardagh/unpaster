@@ -104,3 +104,17 @@ def test_on_hotkey_ignores_repeat_while_palette_is_visible(unpaster):
     unpaster._on_hotkey()
 
     assert unpaster._target_hwnd == sentinel_hwnd
+
+
+def test_windows_get_the_drawn_icon(unpaster, app):
+    """Without an application icon, Qt gives windows a blank titlebar icon and
+    the taskbar falls back to the interpreter's own icon."""
+    assert app.windowIcon().isNull() is False
+    assert unpaster.manager.windowIcon().isNull() is False
+
+
+def test_app_user_model_id_is_set_without_raising():
+    # Windows groups a window under the process that owns the AppUserModelID;
+    # without an explicit one, a python.exe host supplies both the grouping and
+    # the taskbar icon.
+    assert main.set_app_user_model_id() in (True, False)
