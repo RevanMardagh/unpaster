@@ -14,10 +14,19 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from . import dpapi, fsutil
+from . import config, dpapi, fsutil
 
 ENTROPY = b"unpaster/v1/snippet-store"
 SCHEMA_VERSION = 1
+
+# Sentinel for update(): None is a real value there -- it clears an override --
+# so "argument not given" needs a distinct marker.
+KEEP: object = object()
+
+
+def _override(value: object, allowed: tuple[str, ...]) -> str | None:
+    """Keep a per-snippet override only if it names something usable."""
+    return value if value in allowed else None
 
 
 @dataclass
@@ -28,6 +37,9 @@ class Snippet:
     secret: bool = False
     order: int = 0
     send_keys: bool = False  # interpret {ctrl+a}, {enter}, {wait:500} in the body
+    # None means "use the value from Settings" for this snippet.
+    method: str | None = None
+    newline_mode: str | None = None
 
 
 def snippets_path() -> Path:
@@ -65,6 +77,8 @@ class SnippetStore:
                     secret=bool(item.get("secret", False)),
                     order=int(item.get("order", index)),
                     send_keys=bool(item.get("send_keys", False)),
+                    method=_override(item.get("method"), config.METHODS),
+                    newline_mode=_override(item.get("newline_mode"), config.NEWLINE_MODES),
                 )
                 for index, item in enumerate(items)
             ]
@@ -96,14 +110,21 @@ class SnippetStore:
         raise KeyError(sid)
 
     def add(self, name: str, body: str, secret: bool = False,
-            send_keys: bool = False) -> Snippet:
+            send_keys: bool = False, method: str | None = None,
+            newline_mode: str | None = None) -> Snippet:
         snippet = Snippet(id=str(uuid.uuid4()), name=name, body=body,
-                          secret=secret, order=len(self.snippets), send_keys=send_keys)
+                          secret=secret, order=len(self.snippets), send_keys=send_keys,
+                          method=_override(method, config.METHODS),
+                          newline_mode=_override(newline_mode, config.NEWLINE_MODES))
         self.snippets.append(snippet)
         return snippet
 
     def update(self, sid: str, *, name: str | None = None, body: str | None = None,
-               secret: bool | None = None, send_keys: bool | None = None) -> Snippet:
+               secret: bool | None = None, send_keys: bool | None = None,
+               method: str | None | object = KEEP,
+               newline_mode: str | None | object = KEEP) -> Snippet:
+        """Update a snippet. For the two overrides, None clears them and the
+        argument being absent leaves them as they are."""
         snippet = self.get(sid)
         if name is not None:
             snippet.name = name
@@ -113,6 +134,10 @@ class SnippetStore:
             snippet.secret = secret
         if send_keys is not None:
             snippet.send_keys = send_keys
+        if method is not KEEP:
+            snippet.method = _override(method, config.METHODS)
+        if newline_mode is not KEEP:
+            snippet.newline_mode = _override(newline_mode, config.NEWLINE_MODES)
         return snippet
 
     def delete(self, sid: str) -> None:

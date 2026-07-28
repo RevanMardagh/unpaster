@@ -8,6 +8,7 @@ foreground restore are injected, which keeps the ordering rules -- especially
 from __future__ import annotations
 
 import threading
+from dataclasses import dataclass
 
 from . import focus, winput
 
@@ -27,6 +28,20 @@ BAD_TOKEN_MESSAGE = (
     "A {key} token in this snippet is not valid. Open the manager and save the "
     "snippet to see which one."
 )
+
+
+@dataclass(frozen=True)
+class PasteRequest:
+    """One thing to type, plus whatever the snippet overrides about how.
+
+    method and newline_mode are None when the snippet follows Settings.
+    """
+
+    name: str
+    text: str
+    send_keys: bool = False
+    method: str | None = None
+    newline_mode: str | None = None
 
 
 class PasteController:
@@ -57,6 +72,8 @@ class PasteController:
         self._name = ""
         self._text = ""
         self._send_keys = False
+        self._method: str | None = None
+        self._newline_mode: str | None = None
         self._cfg: dict = {}
         self._remaining = 0
 
@@ -67,7 +84,8 @@ class PasteController:
     # -- entry points ------------------------------------------------------
 
     def start(self, name: str, text: str, target_hwnd: int,
-              send_keys: bool = False) -> None:
+              send_keys: bool = False, method: str | None = None,
+              newline_mode: str | None = None) -> None:
         if self._busy:
             return
 
@@ -76,6 +94,8 @@ class PasteController:
         self._name = name
         self._text = text
         self._send_keys = send_keys
+        self._method = method
+        self._newline_mode = newline_mode
         self._cfg = dict(self._get_config())
         self._set_armed(True)
 
@@ -123,8 +143,8 @@ class PasteController:
     def _type_worker(self) -> None:
         result = self._type_text(
             self._text,
-            method=self._cfg.get("method", "unicode"),
-            newline_mode=self._cfg.get("newline_mode", "enter"),
+            method=self._method or self._cfg.get("method", "unicode"),
+            newline_mode=self._newline_mode or self._cfg.get("newline_mode", "enter"),
             char_delay_ms=int(self._cfg.get("char_delay_ms", 12)),
             send_keys=self._send_keys,
             cancel=self._cancel,

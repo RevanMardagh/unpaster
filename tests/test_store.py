@@ -182,3 +182,56 @@ def test_file_written_before_send_keys_existed_loads_as_false(path):
     st, warnings = store.SnippetStore.load(path)
     assert warnings == []
     assert st.snippets[0].send_keys is False
+
+
+def test_new_snippet_has_no_method_or_newline_override(path):
+    st, _ = store.SnippetStore.load(path)
+    snippet = st.add("port", "3389")
+    assert snippet.method is None
+    assert snippet.newline_mode is None
+
+
+def test_overrides_round_trip(path):
+    st, _ = store.SnippetStore.load(path)
+    st.add("cmd", "dir", method="scancode", newline_mode="skip")
+    st.save()
+
+    reloaded, warnings = store.SnippetStore.load(path)
+    assert warnings == []
+    assert reloaded.snippets[0].method == "scancode"
+    assert reloaded.snippets[0].newline_mode == "skip"
+
+
+def test_update_sets_and_clears_an_override(path):
+    st, _ = store.SnippetStore.load(path)
+    snippet = st.add("cmd", "dir")
+    st.update(snippet.id, method="scancode")
+    assert st.get(snippet.id).method == "scancode"
+
+    st.update(snippet.id, method=None)
+    assert st.get(snippet.id).method is None
+
+
+def test_update_without_the_argument_leaves_an_override_alone(path):
+    st, _ = store.SnippetStore.load(path)
+    snippet = st.add("cmd", "dir", method="scancode", newline_mode="skip")
+    st.update(snippet.id, name="renamed")
+    assert st.get(snippet.id).method == "scancode"
+    assert st.get(snippet.id).newline_mode == "skip"
+
+
+def test_unusable_override_in_the_file_falls_back_to_no_override(path):
+    import json
+
+    payload = {
+        "schema_version": 1,
+        "snippets": [{
+            "id": "abc", "name": "hand edited", "body": "x", "secret": False,
+            "order": 0, "method": "telepathy", "newline_mode": "carriage",
+        }],
+    }
+    path.write_bytes(dpapi.protect(json.dumps(payload).encode("utf-8"), store.ENTROPY))
+    st, warnings = store.SnippetStore.load(path)
+    assert warnings == []
+    assert st.snippets[0].method is None
+    assert st.snippets[0].newline_mode is None

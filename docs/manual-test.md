@@ -37,6 +37,21 @@ Automated tests cannot simulate a remote session. Run this list before each rele
 - [ ] Skip: the multi-line snippet arrives as one line.
 - [ ] Literal: a line feed character is typed.
 
+## Per-snippet options
+
+- [ ] Advanced is collapsed for a plain snippet and opens when clicked.
+- [ ] A snippet with `method = scancode` types through the scancode path while Settings
+      stays on Unicode; another snippet in the same session still uses Unicode.
+- [ ] A snippet with `newline_mode = skip` arrives as one line while Settings says `enter`.
+- [ ] Setting both back to `Default (...)` restores the Settings behaviour.
+- [ ] Changing the Settings method relabels the `Default (...)` entries.
+- [ ] Selecting a snippet that has any advanced value opens the block automatically.
+
+## Window icon
+
+- [ ] The manager window shows the unpaster icon in its titlebar and in the taskbar,
+      both from source and from `dist\unpaster.exe`.
+
 ## Key tokens
 
 - [ ] Snippet with **Send key tokens** off and a body of `{"port": 3389}` types literally.

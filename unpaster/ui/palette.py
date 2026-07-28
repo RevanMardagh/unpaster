@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout
 )
 
+from ..paste import PasteRequest
 from ..store import Snippet, SnippetStore
 
 SECRET_MARK = "  \U0001F512"
@@ -38,7 +39,7 @@ def palette_rows(snippet_store: SnippetStore, query: str) -> list[tuple[str, str
 
 
 class PaletteWindow(QDialog):
-    submitted = Signal(str, str, bool)  # display name, text to type, send keys
+    submitted = Signal(object)  # a paste.PasteRequest
     dismissed = Signal()
 
     def __init__(self, snippet_store: SnippetStore) -> None:
@@ -119,7 +120,13 @@ class PaletteWindow(QDialog):
             return
         snippet = self._store.get(item.data(Qt.UserRole))
         self._finish()
-        self.submitted.emit(snippet.name, snippet.body, snippet.send_keys)
+        self.submitted.emit(PasteRequest(
+            name=snippet.name,
+            text=snippet.body,
+            send_keys=snippet.send_keys,
+            method=snippet.method,
+            newline_mode=snippet.newline_mode,
+        ))
 
     def _submit_free_text(self) -> None:
         if self._closing:
@@ -128,9 +135,10 @@ class PaletteWindow(QDialog):
         if not text:
             return
         self._finish()
-        # Free text is always literal: nobody types {ctrl+a} into the palette
-        # expecting a chord, and a stray brace should never be a parse error.
-        self.submitted.emit("free text", text, False)
+        # Free text is always literal and always follows Settings: nobody types
+        # {ctrl+a} into the palette expecting a chord, and a stray brace should
+        # never be a parse error.
+        self.submitted.emit(PasteRequest(name="free text", text=text))
 
     # -- input handling ----------------------------------------------------
 

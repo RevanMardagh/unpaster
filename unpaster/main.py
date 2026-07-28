@@ -17,6 +17,7 @@ from .ui.overlay import OverlayWindow
 from .ui.palette import PaletteWindow
 
 MUTEX_NAME = "unpaster-single-instance-4f21c0"
+APP_USER_MODEL_ID = "unpaster.tray.1"
 TEST_TEXT = "unpaster test 12345 - the quick brown fox"
 
 ERROR_ALREADY_EXISTS = 183
@@ -43,6 +44,20 @@ def release_single_instance(handle) -> None:
         _kernel32.CloseHandle(handle)
 
 
+def set_app_user_model_id(app_id: str = APP_USER_MODEL_ID) -> bool:
+    """Claim our own taskbar identity. Returns False if Windows refused.
+
+    Without this the taskbar groups the window under whatever process hosts it
+    and shows that process's icon -- python.exe's, when running from source.
+    """
+    try:
+        shell32 = ctypes.WinDLL("shell32", use_last_error=True)
+        shell32.SetCurrentProcessExplicitAppUserModelID.argtypes = [wintypes.LPCWSTR]
+        return shell32.SetCurrentProcessExplicitAppUserModelID(app_id) == 0
+    except (OSError, AttributeError):
+        return False
+
+
 class HookBridge(QObject):
     """Carries hook-thread and worker-thread events onto the Qt main thread.
 
@@ -61,6 +76,10 @@ class HookBridge(QObject):
 class UnpasterApp:
     def __init__(self, app: QApplication) -> None:
         self.app = app
+        set_app_user_model_id()
+        # Set on the application, so every window and the taskbar entry inherit
+        # it rather than each window needing its own.
+        app.setWindowIcon(tray_icon())
         self.cfg, warnings = config.load(config.config_path())
         self.store, store_warnings = store.SnippetStore.load(store.snippets_path())
         self._pending_warnings = warnings + store_warnings
@@ -159,8 +178,13 @@ class UnpasterApp:
         self.overlay.move_to_screen_of(self._target_hwnd)
         self.palette.open_palette()
 
-    def _on_palette_submitted(self, name: str, text: str, send_keys: bool) -> None:
-        self.controller.start(name, text, self._target_hwnd, send_keys=send_keys)
+    def _on_palette_submitted(self, request: paste.PasteRequest) -> None:
+        self.controller.start(
+            request.name, request.text, self._target_hwnd,
+            send_keys=request.send_keys,
+            method=request.method,
+            newline_mode=request.newline_mode,
+        )
 
     def _run_test_paste(self) -> None:
         self._target_hwnd = int(self.manager.winId())

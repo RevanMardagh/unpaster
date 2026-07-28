@@ -6,10 +6,22 @@ Press the hotkey (Ctrl+Alt+V by default), pick a snippet or type a one-off strin
 unpaster restores focus to the session and types it character by character. The clipboard
 is never used.
 
+## Per-snippet options
+
+The Settings tab holds the defaults. Any snippet can override them under **Advanced** in
+the snippet editor: the typing method (`unicode` or `scancode`), newline handling (`enter`,
+`skip` or `literal`), and whether key tokens are parsed. Each option shows
+`Default (<setting>)` until you choose otherwise, so a snippet follows Settings unless it
+says otherwise — useful when one target is a VNC viewer that needs the scancode fallback
+while everything else stays on Unicode.
+
+The block opens by itself for a snippet that already uses any of it, so a non-default
+choice is never hidden. Palette free text always follows Settings.
+
 ## Key tokens
 
 A snippet can send key combinations instead of only characters. Tick **Send key tokens**
-on the snippet, then write tokens in the body:
+under Advanced on the snippet, then write tokens in the body:
 
 | Token | Effect |
 |---|---|

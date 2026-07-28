@@ -16,6 +16,10 @@ from .palette import SECRET_MARK
 LIST_BUTTON_SIZE = 28
 REVEAL_BUTTON_WIDTH = 68
 
+# Combo data for "follow the Settings tab". Not None: Qt stores None as an
+# invalid variant, which findData() then cannot locate.
+FOLLOW_SETTINGS = ""
+
 EDITABLE_KEYS = (
     "hotkey", "countdown_ms", "char_delay_ms", "method",
     "newline_mode", "overlay_enabled", "close_to_tray", "autostart",
@@ -125,10 +129,6 @@ class ManagerWindow(QMainWindow):
         self.name_edit = QLineEdit(page)
         self.body_edit = QPlainTextEdit(page)
         self.secret_check = QCheckBox("Secret (mask in lists, never shown in overlay)", page)
-        self.keys_check = QCheckBox("Send key tokens: {ctrl+a} {enter} {wait:500}, {{ for a brace", page)
-        self.keys_check.setToolTip(
-            "Off by default so bodies holding JSON or shell braces type unchanged."
-        )
         self.snippet_status = QLabel("", page)
         self.snippet_status.setWordWrap(True)
 
@@ -151,11 +151,22 @@ class ManagerWindow(QMainWindow):
         save_row.addStretch(1)
         save_row.addWidget(self.save_button)
 
+        self.advanced_button = QPushButton("Advanced", page)
+        self.advanced_button.setCheckable(True)
+        self.advanced_button.setToolTip(
+            "Per-snippet typing options. Unset options follow the Settings tab."
+        )
+        self.advanced_button.toggled.connect(self._toggle_advanced)
+        advanced_row = QHBoxLayout()
+        advanced_row.addWidget(self.advanced_button)
+        advanced_row.addStretch(1)
+
         form = QFormLayout()
         form.addRow("Name", self.name_edit)
         form.addRow("Body", self.body_edit)
         form.addRow("", secret_row)
-        form.addRow("", self.keys_check)
+        form.addRow("", advanced_row)
+        form.addRow("", self._build_advanced_box(page))
         form.addRow("", self.snippet_status)
 
         right = QVBoxLayout()
@@ -166,6 +177,55 @@ class ManagerWindow(QMainWindow):
         layout.addLayout(self._build_list_column(page), 1)
         layout.addLayout(right, 2)
         return page
+
+    def _build_advanced_box(self, page: QWidget) -> QWidget:
+        """Per-snippet typing options, hidden behind the Advanced button."""
+        self.advanced_box = QWidget(page)
+        self.advanced_box.setVisible(False)
+
+        self.keys_check = QCheckBox(
+            "Send key tokens: {ctrl+a} {enter} {wait:500}, {{ for a brace", self.advanced_box)
+        self.keys_check.setToolTip(
+            "Off by default so bodies holding JSON or shell braces type unchanged."
+        )
+
+        self.snippet_method_combo = QComboBox(self.advanced_box)
+        self.snippet_newline_combo = QComboBox(self.advanced_box)
+        self._fill_override_combos()
+
+        inner = QFormLayout(self.advanced_box)
+        inner.setContentsMargins(0, 0, 0, 0)
+        inner.addRow("", self.keys_check)
+        inner.addRow("Method", self.snippet_method_combo)
+        inner.addRow("Newlines", self.snippet_newline_combo)
+        return self.advanced_box
+
+    def _fill_override_combos(self) -> None:
+        """Rebuild both combos so the default entry names the current setting."""
+        for combo, choices, key in (
+            (self.snippet_method_combo, config.METHODS, "method"),
+            (self.snippet_newline_combo, config.NEWLINE_MODES, "newline_mode"),
+        ):
+            previous = combo.currentData() if combo.count() else FOLLOW_SETTINGS
+            combo.clear()
+            combo.addItem(f"Default ({self._cfg.get(key)})", FOLLOW_SETTINGS)
+            for choice in choices:
+                combo.addItem(choice, choice)
+            combo.setCurrentIndex(max(0, combo.findData(previous)))
+
+    @staticmethod
+    def _show_override(combo: QComboBox, value: str | None) -> None:
+        combo.setCurrentIndex(max(0, combo.findData(value or FOLLOW_SETTINGS)))
+
+    def method_override(self) -> str | None:
+        """The snippet's method, or None when it follows Settings."""
+        return self.snippet_method_combo.currentData() or None
+
+    def newline_override(self) -> str | None:
+        return self.snippet_newline_combo.currentData() or None
+
+    def _toggle_advanced(self, shown: bool) -> None:
+        self.advanced_box.setVisible(shown)
 
     def _build_list_column(self, page: QWidget) -> QVBoxLayout:
         """The snippet list with its own compact add/remove/reorder strip."""
@@ -227,6 +287,12 @@ class ManagerWindow(QMainWindow):
         self.name_edit.setText(snippet.name)
         self.secret_check.setChecked(snippet.secret)
         self.keys_check.setChecked(snippet.send_keys)
+        self._show_override(self.snippet_method_combo, snippet.method)
+        self._show_override(self.snippet_newline_combo, snippet.newline_mode)
+        # Opened for a snippet that uses any of it, so a non-default setting is
+        # never hidden from the person reading the snippet.
+        self.advanced_button.setChecked(
+            bool(snippet.send_keys or snippet.method or snippet.newline_mode))
         self.snippet_status.setText("")
         self.reveal_button.setChecked(False)
         self._render_body(snippet.body, snippet.secret)
@@ -271,7 +337,9 @@ class ManagerWindow(QMainWindow):
 
         self.snippet_status.setText("")
         self._store.update(self._current_id, name=self.name_edit.text().strip() or "unnamed",
-                           body=body, secret=secret, send_keys=send_keys)
+                           body=body, secret=secret, send_keys=send_keys,
+                           method=self.method_override(),
+                           newline_mode=self.newline_override())
         self._store.save()
         self._reload_list(select_id=self._current_id)
 
@@ -414,6 +482,7 @@ class ManagerWindow(QMainWindow):
 
         self._cfg = merged
         self._write_form(merged)
+        self._fill_override_combos()  # the "Default (...)" labels name these values
         self._on_config_changed(dict(merged))
         self.settings_status.setText(" ".join(warnings) if warnings else "Applied.")
 
@@ -463,3 +532,4 @@ class ManagerWindow(QMainWindow):
     def apply_external_config(self, cfg: dict) -> None:
         self._cfg = dict(cfg)
         self._write_form(self._cfg)
+        self._fill_override_combos()

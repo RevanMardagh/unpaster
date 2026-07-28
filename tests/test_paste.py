@@ -275,3 +275,50 @@ def test_bad_token_shows_a_message_that_leaks_no_body_text():
     assert kind == "error"
     assert message == paste.BAD_TOKEN_MESSAGE
     assert "hunter2" not in message
+
+
+def test_snippet_method_overrides_the_setting():
+    typed = []
+    controller, _overlay, scheduler, _armed, _finished = make_controller(
+        cfg={"countdown_ms": 0, "method": "unicode"}, typed_log=typed)
+    controller.start("cmd", "dir", 4321, method="scancode")
+    scheduler.run_all()
+
+    assert typed[0][1]["method"] == "scancode"
+
+
+def test_snippet_newline_mode_overrides_the_setting():
+    typed = []
+    controller, _overlay, scheduler, _armed, _finished = make_controller(
+        cfg={"countdown_ms": 0, "newline_mode": "enter"}, typed_log=typed)
+    controller.start("cmd", "a\nb", 4321, newline_mode="skip")
+    scheduler.run_all()
+
+    assert typed[0][1]["newline_mode"] == "skip"
+
+
+def test_no_override_uses_the_settings_values():
+    typed = []
+    controller, _overlay, scheduler, _armed, _finished = make_controller(
+        cfg={"countdown_ms": 0, "method": "scancode", "newline_mode": "literal"},
+        typed_log=typed)
+    controller.start("cmd", "a\nb", 4321)
+    scheduler.run_all()
+
+    assert typed[0][1]["method"] == "scancode"
+    assert typed[0][1]["newline_mode"] == "literal"
+
+
+def test_a_request_carries_every_per_snippet_choice():
+    request = paste.PasteRequest(name="cmd", text="dir", send_keys=True,
+                                 method="scancode", newline_mode="skip")
+    assert (request.name, request.text) == ("cmd", "dir")
+    assert request.send_keys is True
+    assert (request.method, request.newline_mode) == ("scancode", "skip")
+
+
+def test_a_request_defaults_to_no_overrides():
+    request = paste.PasteRequest(name="free text", text="x")
+    assert request.send_keys is False
+    assert request.method is None
+    assert request.newline_mode is None
