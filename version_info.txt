@@ -14,7 +14,9 @@ VSVersionInfo(
       StringTable(
         '040904B0',
         [StringStruct('CompanyName', 'unpaster'),
-         StringStruct('FileDescription', 'Types text into RDP and VNC sessions'),
+         # Task Manager's Name column shows FileDescription, so keep it short.
+         StringStruct('FileDescription', 'unpaster'),
+         StringStruct('Comments', 'Types text into RDP and VNC sessions'),
          StringStruct('FileVersion', '0.1.0.0'),
          StringStruct('InternalName', 'unpaster'),
          StringStruct('OriginalFilename', 'unpaster.exe'),
