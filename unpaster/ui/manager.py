@@ -212,7 +212,7 @@ class ManagerWindow(QMainWindow):
         snippet = self._store.get(self._current_id)
         secret = self.secret_check.isChecked()
         body = snippet.body
-        if not (secret and not self._revealed):
+        if not self.body_edit.isReadOnly():
             body = self.body_edit.toPlainText()
         self._store.update(self._current_id, name=self.name_edit.text().strip() or "unnamed",
                            body=body, secret=secret)
