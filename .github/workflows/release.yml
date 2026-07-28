@@ -53,25 +53,19 @@ jobs:
           "$hash  unpaster.exe" | Out-File dist\unpaster.exe.sha256 -Encoding ascii -NoNewline
           Write-Host "unpaster.exe  $hash"
 
+      # The note is the download preamble plus this version's CHANGELOG.md
+      # entries, so New/Changed/Fixed written during development becomes the
+      # release note. A tag with no changelog section fails here.
+      - name: Assemble the release note
+        shell: pwsh
+        run: python -m tools.release_notes --version "$env:GITHUB_REF_NAME" --output dist/RELEASE_NOTE.md
+
       - name: Publish the release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/unpaster.exe
             dist/unpaster.exe.sha256
+          # GitHub's generated commit list is appended under this body.
           generate_release_notes: true
-          body: |
-            Download `unpaster.exe` below. No installer or runtime required.
-
-            **Verify it** against `unpaster.exe.sha256`:
-
-            ```powershell
-            Get-FileHash unpaster.exe -Algorithm SHA256 | Select-Object -ExpandProperty Hash
-            ```
-
-            **Windows will warn you.** The executable is unsigned and installs a low-level
-            keyboard hook, so SmartScreen and some scanners flag it. Why that is
-            unavoidable, and what to check instead:
-            https://github.com/RevanMardagh/unpaster#windows-will-warn-you
-
-            Settings and snippets are written to `%APPDATA%\unpaster\`
+          body_path: dist/RELEASE_NOTE.md
