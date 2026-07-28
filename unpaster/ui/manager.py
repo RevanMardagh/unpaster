@@ -13,6 +13,9 @@ from .. import autostart, config, hotkey, winput
 from ..store import SnippetStore
 from .palette import SECRET_MARK
 
+LIST_BUTTON_SIZE = 28
+REVEAL_BUTTON_WIDTH = 68
+
 EDITABLE_KEYS = (
     "hotkey", "countdown_ms", "char_delay_ms", "method",
     "newline_mode", "overlay_enabled", "close_to_tray", "autostart",
@@ -128,42 +131,71 @@ class ManagerWindow(QMainWindow):
         )
         self.snippet_status = QLabel("", page)
         self.snippet_status.setWordWrap(True)
+
+        # Reveal sits beside the Secret box it belongs to, kept small so it
+        # reads as a view toggle rather than an action on the snippet.
         self.reveal_button = QPushButton("Reveal", page)
         self.reveal_button.setCheckable(True)
+        self.reveal_button.setFixedWidth(REVEAL_BUTTON_WIDTH)
+        self.reveal_button.setToolTip("Show the body of a secret snippet while editing")
         self.reveal_button.toggled.connect(self._toggle_reveal)
+
+        secret_row = QHBoxLayout()
+        secret_row.addWidget(self.secret_check)
+        secret_row.addWidget(self.reveal_button)
+        secret_row.addStretch(1)
+
+        self.save_button = QPushButton("Save", page)
+        self.save_button.clicked.connect(self._save_current)
+        save_row = QHBoxLayout()
+        save_row.addStretch(1)
+        save_row.addWidget(self.save_button)
 
         form = QFormLayout()
         form.addRow("Name", self.name_edit)
         form.addRow("Body", self.body_edit)
-        form.addRow("", self.secret_check)
+        form.addRow("", secret_row)
         form.addRow("", self.keys_check)
-        form.addRow("", self.reveal_button)
         form.addRow("", self.snippet_status)
-
-        add_button = QPushButton("Add", page)
-        save_button = QPushButton("Save", page)
-        delete_button = QPushButton("Delete", page)
-        up_button = QPushButton("Move up", page)
-        down_button = QPushButton("Move down", page)
-        add_button.clicked.connect(self._add)
-        save_button.clicked.connect(self._save_current)
-        delete_button.clicked.connect(self._delete_current)
-        up_button.clicked.connect(lambda: self._move(-1))
-        down_button.clicked.connect(lambda: self._move(1))
-
-        buttons = QHBoxLayout()
-        for button in (add_button, save_button, delete_button, up_button, down_button):
-            buttons.addWidget(button)
-        buttons.addStretch(1)
 
         right = QVBoxLayout()
         right.addLayout(form)
-        right.addLayout(buttons)
+        right.addLayout(save_row)
 
         layout = QHBoxLayout(page)
-        layout.addWidget(self.snippet_list, 1)
+        layout.addLayout(self._build_list_column(page), 1)
         layout.addLayout(right, 2)
         return page
+
+    def _build_list_column(self, page: QWidget) -> QVBoxLayout:
+        """The snippet list with its own compact add/remove/reorder strip."""
+        self.add_button = self._list_button(page, "+", "Add a snippet", self._add)
+        self.delete_button = self._list_button(page, "−", "Delete the selected snippet",
+                                               self._delete_current)
+        self.up_button = self._list_button(page, "▲", "Move the selection up",
+                                           lambda: self._move(-1))
+        self.down_button = self._list_button(page, "▼", "Move the selection down",
+                                             lambda: self._move(1))
+
+        strip = QHBoxLayout()
+        strip.setSpacing(4)
+        for button in (self.add_button, self.delete_button, self.up_button, self.down_button):
+            strip.addWidget(button)
+        strip.addStretch(1)
+
+        column = QVBoxLayout()
+        column.addWidget(self.snippet_list)
+        column.addLayout(strip)
+        return column
+
+    @staticmethod
+    def _list_button(page: QWidget, label: str, tip: str, handler) -> QPushButton:
+        button = QPushButton(label, page)
+        button.setFixedSize(LIST_BUTTON_SIZE, LIST_BUTTON_SIZE)
+        button.setToolTip(tip)
+        button.setAccessibleName(tip)
+        button.clicked.connect(handler)
+        return button
 
     def _reload_list(self, select_id: str | None = None) -> None:
         self.snippet_list.blockSignals(True)
