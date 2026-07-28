@@ -20,6 +20,12 @@ jobs:
         with:
           python-version: "3.12"
 
+      # Before installing anything: a mislabelled tag should fail in seconds.
+      # github.ref_name is the pushed tag, so v0.2.0 against a 0.1.0 project
+      # stops here instead of publishing an executable whose properties lie.
+      - name: Check the tag matches the recorded version
+        run: python -m tools.check_version --tag ${{ github.ref_name }}
+
       - name: Install the project and its dev tools
         run: python -m pip install -e ".[dev]"
 

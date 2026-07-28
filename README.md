@@ -98,3 +98,21 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for 
 Version 3 rather than 2 is deliberate: PySide6 and Qt are LGPL-3.0, and LGPL-3.0 code
 cannot be combined with a GPL-2.0-only work. Building the executable bundles Qt, so a
 binary you distribute carries Qt's LGPL-3.0 obligations alongside this project's GPL.
+
+## Releasing
+
+The version is recorded in `pyproject.toml` and four more times in `version_info.txt` for
+the Windows version resource. `python -m tools.check_version` asserts they agree, the test
+suite runs it on every push, and the release workflow additionally compares the pushed tag.
+
+```powershell
+# 1. bump the version in pyproject.toml and version_info.txt, add a CHANGELOG entry
+.venv\Scripts\python.exe -m tools.check_version   # must print "recorded consistently"
+git commit -am "Release 0.1.1"
+git tag -a v0.1.1 -m "unpaster 0.1.1"
+git push origin master v0.1.1
+```
+
+Pushing the tag runs `.github/workflows/release.yml`, which checks the tag against the
+version, runs the tests, builds the executable, writes its SHA256 checksum, and attaches
+both to a GitHub release.
