@@ -6,6 +6,37 @@ Press the hotkey (Ctrl+Alt+V by default), pick a snippet or type a one-off strin
 unpaster restores focus to the session and types it character by character. The clipboard
 is never used.
 
+## Download
+
+Grab `unpaster.exe` from the [latest release](https://github.com/RevanMardagh/unpaster/releases/latest).
+There is no installer and no runtime to install — the executable is self-contained. Settings
+and snippets are written to `%APPDATA%\unpaster\`, never beside the executable, so it runs
+fine from a folder you cannot write to.
+
+### Verify the download
+
+Every release ships `unpaster.exe.sha256` beside the executable. Compare them:
+
+```powershell
+Get-FileHash unpaster.exe -Algorithm SHA256 | Select-Object -ExpandProperty Hash
+Get-Content unpaster.exe.sha256
+```
+
+The two hashes must match, ignoring case. A mismatch means the file was corrupted in transit
+or did not come from the release page — do not run it. The checksum proves the file is intact;
+it does not prove who built it, which is what code signing would do.
+
+### Windows will warn you
+
+The executable is unsigned, so SmartScreen shows "Windows protected your PC" the first time
+you run it — click **More info** then **Run anyway** if you trust the source. Some antivirus
+products flag it as well, because it installs a low-level keyboard hook and calls `SendInput`,
+which is exactly what a keylogger does. That combination is the feature; there is no way to
+type into a remote session without it. What you can check instead: the source is public, and
+every release binary is built from a tagged commit by the
+[release workflow](.github/workflows/release.yml) on GitHub's runners, so the build is
+reproducible from the tag.
+
 ## Per-snippet options
 
 The Settings tab holds the defaults. Any snippet can override them under **Advanced** in
@@ -70,12 +101,6 @@ by `tools/make_icon.py` from the same code as the tray icon — rerun
 The frozen entry point is `run_unpaster.py`, not `unpaster/main.py`: PyInstaller runs the
 entry module as `__main__` with no package context, so the package's relative imports
 would fail if `main.py` were used directly.
-
-## Antivirus
-
-unpaster installs a low-level keyboard hook and calls `SendInput`. That combination is
-also what a keylogger does, so some scanners flag the executable. There is no way to
-implement the feature without it.
 
 ## Storage and secrets
 

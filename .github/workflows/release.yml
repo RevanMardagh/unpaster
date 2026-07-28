@@ -61,24 +61,17 @@ jobs:
             dist/unpaster.exe.sha256
           generate_release_notes: true
           body: |
-            Download `unpaster.exe` below. No installer, no runtime to install.
+            Download `unpaster.exe` below. No installer or runtime required.
 
-            **Verify the download** (PowerShell):
+            **Verify it** against `unpaster.exe.sha256`:
 
             ```powershell
-            Get-FileHash unpaster.exe -Algorithm SHA256
+            Get-FileHash unpaster.exe -Algorithm SHA256 | Select-Object -ExpandProperty Hash
             ```
 
-            Compare the result with `unpaster.exe.sha256`.
+            **Windows will warn you.** The executable is unsigned and installs a low-level
+            keyboard hook, so SmartScreen and some scanners flag it. Why that is
+            unavoidable, and what to check instead:
+            https://github.com/RevanMardagh/unpaster#windows-will-warn-you
 
-            **Windows will warn you.** The executable is unsigned, and it installs a
-            low-level keyboard hook and calls `SendInput` -- the same combination a
-            keylogger uses. SmartScreen shows "unrecognized app" and some scanners flag
-            it. The feature cannot be implemented without those two calls; the source and
-            the build that produced this file are both public.
-
-            Settings and snippets are written to `%APPDATA%\unpaster\`, never beside the
-            executable.
-
-            Licensed under GPL-3.0-or-later. The build bundles Qt via PySide6, which is
-            LGPL-3.0; its source is at https://download.qt.io/official_releases/QtForPython/
+            Settings and snippets are written to `%APPDATA%\unpaster\`
