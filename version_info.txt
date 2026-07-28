@@ -19,6 +19,7 @@ VSVersionInfo(
          StringStruct('Comments', 'Types text into RDP and VNC sessions'),
          StringStruct('FileVersion', '0.1.0.0'),
          StringStruct('InternalName', 'unpaster'),
+         StringStruct('LegalCopyright', 'Copyright (C) 2026 RevanMardagh. GPL-3.0-or-later.'),
          StringStruct('OriginalFilename', 'unpaster.exe'),
          StringStruct('ProductName', 'unpaster'),
          StringStruct('ProductVersion', '0.1.0.0')])
