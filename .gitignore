@@ -6,3 +6,10 @@ build/
 dist/
 *.egg-info/
 assets/unpaster.ico
+
+# Local notes and assistant scratch, never published
+docs/superpowers/
+.claude/
+CLAUDE.md
+MEMORY.md
+*.bundle
