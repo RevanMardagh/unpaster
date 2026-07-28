@@ -10,7 +10,10 @@ session layouts agree.
 from __future__ import annotations
 
 import ctypes
+import threading
+import time
 from ctypes import wintypes
+from dataclasses import dataclass
 from typing import Callable
 
 ULONG_PTR = ctypes.c_ulonglong if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c_ulong
@@ -162,3 +165,87 @@ def send_inputs(inputs: list[INPUT]) -> int:
         return 0
     array = (INPUT * len(inputs))(*inputs)
     return _user32.SendInput(len(inputs), array, ctypes.sizeof(INPUT))
+
+
+NEWLINE_MODES = ("enter", "skip", "literal")
+
+
+@dataclass
+class TypeResult:
+    status: str  # "done" | "cancelled" | "blocked" | "unmappable"
+    typed: int
+    total: int
+    detail: str = ""
+
+
+def expand_text(text: str, newline_mode: str) -> list[tuple[str, object]]:
+    """Turn text into a flat token list of characters and virtual keys."""
+    if newline_mode not in NEWLINE_MODES:
+        raise ValueError(f"unknown newline_mode {newline_mode!r}")
+
+    tokens: list[tuple[str, object]] = []
+    for ch in text:
+        if ch == "\r":
+            continue
+        if ch == "\n":
+            if newline_mode == "enter":
+                tokens.append(("vk", VK_RETURN))
+            elif newline_mode == "literal":
+                tokens.append(("char", "\n"))
+            continue
+        if ch == "\t":
+            tokens.append(("vk", VK_TAB))
+            continue
+        tokens.append(("char", ch))
+    return tokens
+
+
+def type_text(
+    text: str,
+    *,
+    method: str = "unicode",
+    newline_mode: str = "enter",
+    char_delay_ms: int = 12,
+    cancel: threading.Event | None = None,
+    progress=None,
+    sender=send_inputs,
+    sleep=time.sleep,
+) -> TypeResult:
+    """Type text one token at a time, reporting progress and honouring cancel."""
+    if method not in ("unicode", "scancode"):
+        raise ValueError(f"unknown method {method!r}")
+
+    tokens = expand_text(text, newline_mode)
+    total = len(tokens)
+    typed = 0
+    delay = char_delay_ms / 1000.0
+
+    for kind, value in tokens:
+        if cancel is not None and cancel.is_set():
+            return TypeResult("cancelled", typed, total)
+
+        try:
+            if kind == "vk":
+                events = vk_inputs(int(value))
+            elif method == "unicode":
+                events = unicode_inputs(str(value))
+            else:
+                events = scancode_inputs(str(value))
+        except UnmappableCharError as exc:
+            return TypeResult("unmappable", typed, total, str(exc))
+
+        accepted = sender(events)
+        if accepted < len(events):
+            return TypeResult(
+                "blocked", typed, total,
+                "Windows refused the input. The target window is probably elevated - "
+                "run unpaster as administrator.",
+            )
+
+        typed += 1
+        if progress is not None:
+            progress(typed, total)
+        if delay:
+            sleep(delay)
+
+    return TypeResult("done", typed, total)
