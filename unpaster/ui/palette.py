@@ -71,7 +71,6 @@ class PaletteWindow(QDialog):
         self.search.returnPressed.connect(self._submit_selected)
         self.free_text.returnPressed.connect(self._submit_free_text)
         self.list.itemActivated.connect(lambda _item: self._submit_selected())
-        self.list.itemDoubleClicked.connect(lambda _item: self._submit_selected())
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -113,6 +112,8 @@ class PaletteWindow(QDialog):
     # -- submission --------------------------------------------------------
 
     def _submit_selected(self) -> None:
+        if self._closing:
+            return
         item = self.list.currentItem()
         if item is None:
             return
@@ -121,6 +122,8 @@ class PaletteWindow(QDialog):
         self.submitted.emit(snippet.name, snippet.body)
 
     def _submit_free_text(self) -> None:
+        if self._closing:
+            return
         text = self.free_text.text()
         if not text:
             return
