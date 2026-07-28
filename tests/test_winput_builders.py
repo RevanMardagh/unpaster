@@ -77,3 +77,9 @@ def test_scancode_altgr_char_wraps_in_ctrl_and_alt():
 def test_scancode_unmappable_char_raises():
     with pytest.raises(winput.UnmappableCharError):
         winput.scancode_inputs("中", vk_scan=lambda ch: -1)
+
+
+def test_scancode_unmappable_char_message_does_not_contain_the_char():
+    with pytest.raises(winput.UnmappableCharError) as excinfo:
+        winput.scancode_inputs("中", vk_scan=lambda ch: -1)
+    assert "中" not in str(excinfo.value)

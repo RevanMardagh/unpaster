@@ -172,6 +172,18 @@ def test_blocked_result_shows_an_error():
     assert overlay.calls[-1] == ("error", "run unpaster as administrator")
 
 
+def test_unmappable_result_does_not_leak_a_character_to_the_overlay():
+    leaky_detail = "'中' has no key on the current layout"
+    unmappable = winput.TypeResult("unmappable", 0, 3, leaky_detail)
+    controller, overlay, scheduler, _armed, finished = make_controller(
+        cfg={"countdown_ms": 0}, type_result=unmappable)
+    controller.start("admin_user", "中bc", 4321)
+    scheduler.run_all()
+
+    assert finished[0].status == "unmappable"
+    assert not any("中" in str(call) for call in overlay.calls)
+
+
 def test_typing_settings_come_from_the_config():
     typed = []
     controller, _overlay, scheduler, _armed, _finished = make_controller(

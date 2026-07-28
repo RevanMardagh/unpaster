@@ -134,7 +134,8 @@ def scancode_inputs(ch: str, vk_scan: Callable[[str], int] | None = None) -> lis
         raise ValueError(f"expected a single character, got {ch!r}")
     scan_result = (vk_scan or _real_vk_scan)(ch)
     if scan_result == -1:
-        raise UnmappableCharError(f"{ch!r} has no key on the current layout")
+        raise UnmappableCharError(
+            "a character in the text has no key on the current keyboard layout")
 
     vk = scan_result & 0xFF
     shift_state = (scan_result >> 8) & 0xFF

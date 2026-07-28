@@ -17,6 +17,10 @@ FOCUS_FAILED_MESSAGE = (
     "Could not bring the target window back to the front. Nothing was typed."
 )
 
+UNMAPPABLE_MESSAGE = (
+    "A character in the text has no key on the current keyboard layout."
+)
+
 
 class PasteController:
     def __init__(
@@ -128,6 +132,8 @@ class PasteController:
                 self._show_done()
             elif result.status == "cancelled":
                 self._show_cancelled()
+            elif result.status == "unmappable":
+                self._show_error(UNMAPPABLE_MESSAGE)
             else:
                 self._show_error(result.detail or result.status)
 
