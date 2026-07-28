@@ -40,6 +40,35 @@ def test_parse_rejects_missing_modifier():
         hotkey.parse_hotkey("v")
 
 
+def test_parse_accepts_bare_function_key():
+    hk = hotkey.parse_hotkey("f13")
+    assert hk.mods == frozenset()
+    assert hk.vk == 0x7C
+
+
+def test_parse_accepts_every_bare_function_key():
+    for number in range(1, 25):
+        hk = hotkey.parse_hotkey(f"f{number}")
+        assert hk.mods == frozenset()
+        assert hk.vk == 0x6F + number
+
+
+def test_parse_accepts_function_key_with_modifiers():
+    hk = hotkey.parse_hotkey("ctrl+shift+f13")
+    assert hk.mods == frozenset({"ctrl", "shift"})
+    assert hk.vk == 0x7C
+
+
+def test_parse_still_rejects_bare_non_function_keys():
+    for name in ("a", "1", "space", "esc", "delete"):
+        with pytest.raises(hotkey.HotkeyParseError):
+            hotkey.parse_hotkey(name)
+
+
+def test_format_round_trips_bare_function_key():
+    assert hotkey.format_hotkey(hotkey.parse_hotkey("f13")) == "f13"
+
+
 def test_parse_rejects_modifier_only():
     with pytest.raises(hotkey.HotkeyParseError):
         hotkey.parse_hotkey("ctrl+alt")

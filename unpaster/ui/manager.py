@@ -42,7 +42,7 @@ class HotkeyEdit(QLineEdit):
     def __init__(self, text: str, parent=None) -> None:
         super().__init__(text, parent)
         self.setReadOnly(True)
-        self.setPlaceholderText("click, then press a combination")
+        self.setPlaceholderText("click, then press a combination (F1-F24 may be alone)")
 
     def keyPressEvent(self, event) -> None:
         key = event.key()
@@ -61,9 +61,11 @@ class HotkeyEdit(QLineEdit):
             parts.append("win")
 
         name = _key_name(key)
-        if name is None or not parts:
+        if name is None:
             return
         parts.append(name)
+        # No modifier check here: parse_hotkey decides, so F1-F24 can be
+        # captured on their own while other bare keys are rejected below.
 
         try:
             combo = hotkey.parse_hotkey("+".join(parts))

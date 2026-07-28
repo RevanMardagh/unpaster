@@ -51,6 +51,11 @@ def _build_vk_table() -> dict[str, int]:
 VK_BY_NAME: dict[str, int] = _build_vk_table()
 _NAME_BY_VK: dict[int, str] = {vk: name for name, vk in VK_BY_NAME.items()}
 
+# F1-F24 may be bound on their own. Every other key needs a modifier, because
+# the hook swallows whatever it matches and a bare letter would make that
+# letter untypable everywhere until the binding is changed.
+FUNCTION_KEY_VKS: frozenset[int] = frozenset(VK_BY_NAME[f"f{n}"] for n in range(1, 25))
+
 
 class HotkeyParseError(Exception):
     """The hotkey text could not be turned into a usable binding."""
@@ -83,14 +88,19 @@ def parse_hotkey(text: str) -> Hotkey:
         else:
             keys.append(part)
 
-    if not mods:
-        raise HotkeyParseError("Hotkey needs at least one modifier such as Ctrl or Alt.")
     if len(keys) != 1:
         raise HotkeyParseError("Hotkey needs exactly one non-modifier key.")
     if keys[0] not in VK_BY_NAME:
         raise HotkeyParseError(f"Unknown key {keys[0]!r}.")
 
-    return Hotkey(frozenset(mods), VK_BY_NAME[keys[0]])
+    vk = VK_BY_NAME[keys[0]]
+    if not mods and vk not in FUNCTION_KEY_VKS:
+        raise HotkeyParseError(
+            f"{keys[0]} needs at least one modifier such as Ctrl or Alt. "
+            "Only F1-F24 can be used on their own."
+        )
+
+    return Hotkey(frozenset(mods), vk)
 
 
 def format_hotkey(hk: Hotkey) -> str:

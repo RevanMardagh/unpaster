@@ -1,5 +1,30 @@
+from PySide6.QtCore import QEvent, Qt
+from PySide6.QtGui import QKeyEvent
+
 from unpaster import config
 from unpaster.ui import manager
+
+
+def _press(widget, key, modifiers=Qt.NoModifier):
+    widget.keyPressEvent(QKeyEvent(QEvent.KeyPress, key, modifiers))
+
+
+def test_capture_accepts_bare_function_key():
+    edit = manager.HotkeyEdit("ctrl+alt+v")
+    _press(edit, Qt.Key_F13)
+    assert edit.text() == "f13"
+
+
+def test_capture_accepts_function_key_with_modifier():
+    edit = manager.HotkeyEdit("ctrl+alt+v")
+    _press(edit, Qt.Key_F13, Qt.ControlModifier)
+    assert edit.text() == "ctrl+f13"
+
+
+def test_capture_ignores_bare_letter():
+    edit = manager.HotkeyEdit("ctrl+alt+v")
+    _press(edit, Qt.Key_A)
+    assert edit.text() == "ctrl+alt+v"
 
 
 def test_config_to_form_round_trips_defaults():
