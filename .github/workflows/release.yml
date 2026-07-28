@@ -21,10 +21,13 @@ jobs:
           python-version: "3.12"
 
       # Before installing anything: a mislabelled tag should fail in seconds.
-      # github.ref_name is the pushed tag, so v0.2.0 against a 0.1.0 project
-      # stops here instead of publishing an executable whose properties lie.
+      # The tag arrives through the environment variable the runner already
+      # sets. Interpolating ${{ github.ref_name }} would paste it into this
+      # script before the shell runs it, and git allows ; & | $ ( ) in a ref
+      # name, so a tag called v0.1.0;whoami would execute as two commands.
       - name: Check the tag matches the recorded version
-        run: python -m tools.check_version --tag ${{ github.ref_name }}
+        shell: pwsh
+        run: python -m tools.check_version --tag "$env:GITHUB_REF_NAME"
 
       - name: Install the project and its dev tools
         run: python -m pip install -e ".[dev]"

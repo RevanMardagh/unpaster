@@ -10,7 +10,7 @@ license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pyinstaller>=6.6"]
+dev = ["pytest>=8.0", "pyinstaller>=6.6", "PyYAML>=6.0"]
 
 [build-system]
 requires = ["setuptools>=77"]
