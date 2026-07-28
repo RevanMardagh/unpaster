@@ -18,7 +18,9 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          # Matches the version releases are smoke-tested with, so the
+          # published binary and the tested one differ as little as possible.
+          python-version: "3.13"
 
       # Before installing anything: a mislabelled tag should fail in seconds.
       # The tag arrives through the environment variable the runner already
