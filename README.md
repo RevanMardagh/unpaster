@@ -60,9 +60,12 @@ Pinned versions are also available as `requirements.txt` (runtime) and
 ## Build the executable
 
 ```powershell
-.venv\Scripts\python.exe -m tools.make_icon
 .venv\Scripts\python.exe -m PyInstaller --clean --noconfirm unpaster.spec
 ```
+
+`assets/unpaster.ico` is committed, so the build needs nothing generated first. It is drawn
+by `tools/make_icon.py` from the same code as the tray icon — rerun
+`python -m tools.make_icon` and commit the result when that drawing changes.
 
 The frozen entry point is `run_unpaster.py`, not `unpaster/main.py`: PyInstaller runs the
 entry module as `__main__` with no package context, so the package's relative imports

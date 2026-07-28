@@ -28,11 +28,8 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: python -m pytest
 
-      - name: Draw the application icon
-        env:
-          QT_QPA_PLATFORM: offscreen
-        run: python -m tools.make_icon
-
+      # assets/unpaster.ico is committed. Regenerate it with
+      # `python -m tools.make_icon` when the drawing changes.
       - name: Build the executable
         run: python -m PyInstaller --clean --noconfirm unpaster.spec
 
