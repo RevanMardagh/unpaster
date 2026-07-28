@@ -1,0 +1,76 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+# The release step creates a release and uploads assets, which is a write to
+# the repository. Jobs get read-only access unless a permission is granted.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the project and its dev tools
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run the test suite
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest
+
+      - name: Draw the application icon
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m tools.make_icon
+
+      - name: Build the executable
+        run: python -m PyInstaller --clean --noconfirm unpaster.spec
+
+      - name: Write the SHA256 checksum
+        # Same format as sha256sum, so `sha256sum -c` verifies it as well as
+        # PowerShell's Get-FileHash does.
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash dist\unpaster.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  unpaster.exe" | Out-File dist\unpaster.exe.sha256 -Encoding ascii -NoNewline
+          Write-Host "unpaster.exe  $hash"
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/unpaster.exe
+            dist/unpaster.exe.sha256
+          generate_release_notes: true
+          body: |
+            Download `unpaster.exe` below. No installer, no runtime to install.
+
+            **Verify the download** (PowerShell):
+
+            ```powershell
+            Get-FileHash unpaster.exe -Algorithm SHA256
+            ```
+
+            Compare the result with `unpaster.exe.sha256`.
+
+            **Windows will warn you.** The executable is unsigned, and it installs a
+            low-level keyboard hook and calls `SendInput` -- the same combination a
+            keylogger uses. SmartScreen shows "unrecognized app" and some scanners flag
+            it. The feature cannot be implemented without those two calls; the source and
+            the build that produced this file are both public.
+
+            Settings and snippets are written to `%APPDATA%\unpaster\`, never beside the
+            executable.
+
+            Licensed under GPL-3.0-or-later. The build bundles Qt via PySide6, which is
+            LGPL-3.0; its source is at https://download.qt.io/official_releases/QtForPython/
