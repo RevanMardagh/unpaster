@@ -6,6 +6,23 @@ Press the hotkey (Ctrl+Alt+V by default), pick a snippet or type a one-off strin
 unpaster restores focus to the session and types it character by character. The clipboard
 is never used.
 
+## Key tokens
+
+A snippet can send key combinations instead of only characters. Tick **Send key tokens**
+on the snippet, then write tokens in the body:
+
+| Token | Effect |
+|---|---|
+| `{ctrl+a}` | Holds Ctrl, taps A, releases Ctrl. Any of `ctrl`, `alt`, `shift`, `win` combine. |
+| `{enter}` `{tab}` `{esc}` `{f5}` `{up}` `{delete}` | Taps the key on its own. |
+| `{wait:500}` | Pauses 500 ms, for remote apps that drop keys after a dialog opens. Maximum 60000. |
+| `{{` | Types one literal `{`. |
+
+The toggle is per snippet and off by default, so a body holding JSON or shell braces types
+unchanged and needs no escaping. Palette free text is always literal. An unusable token is
+reported when the snippet is saved; the paste-time message stays generic because a body may
+be a secret.
+
 ## Why not just paste
 
 Clipboard redirection is often disabled by policy, blocked by the session host, or

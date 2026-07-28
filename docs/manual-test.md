@@ -37,6 +37,16 @@ Automated tests cannot simulate a remote session. Run this list before each rele
 - [ ] Skip: the multi-line snippet arrives as one line.
 - [ ] Literal: a line feed character is typed.
 
+## Key tokens
+
+- [ ] Snippet with **Send key tokens** off and a body of `{"port": 3389}` types literally.
+- [ ] Snippet with it on and `admin{tab}hunter2{enter}` fills a two-field login and submits.
+- [ ] `{ctrl+a}` selects all in the remote editor, `{ctrl+shift+end}` extends the selection.
+- [ ] `{wait:1000}` visibly pauses mid-paste; Escape during the pause still cancels.
+- [ ] `{{` types one brace.
+- [ ] Saving a snippet with `{ctrl+banana}` is refused and names the token inline.
+- [ ] A stored bad token pastes to a generic overlay error that quotes no body text.
+
 ## Settings
 
 - [ ] Rebinding the hotkey takes effect without a restart.

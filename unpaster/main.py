@@ -159,8 +159,8 @@ class UnpasterApp:
         self.overlay.move_to_screen_of(self._target_hwnd)
         self.palette.open_palette()
 
-    def _on_palette_submitted(self, name: str, text: str) -> None:
-        self.controller.start(name, text, self._target_hwnd)
+    def _on_palette_submitted(self, name: str, text: str, send_keys: bool) -> None:
+        self.controller.start(name, text, self._target_hwnd, send_keys=send_keys)
 
     def _run_test_paste(self) -> None:
         self._target_hwnd = int(self.manager.winId())

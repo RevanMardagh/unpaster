@@ -27,6 +27,7 @@ class Snippet:
     body: str
     secret: bool = False
     order: int = 0
+    send_keys: bool = False  # interpret {ctrl+a}, {enter}, {wait:500} in the body
 
 
 def snippets_path() -> Path:
@@ -63,6 +64,7 @@ class SnippetStore:
                     body=str(item["body"]),
                     secret=bool(item.get("secret", False)),
                     order=int(item.get("order", index)),
+                    send_keys=bool(item.get("send_keys", False)),
                 )
                 for index, item in enumerate(items)
             ]
@@ -93,14 +95,15 @@ class SnippetStore:
                 return snippet
         raise KeyError(sid)
 
-    def add(self, name: str, body: str, secret: bool = False) -> Snippet:
+    def add(self, name: str, body: str, secret: bool = False,
+            send_keys: bool = False) -> Snippet:
         snippet = Snippet(id=str(uuid.uuid4()), name=name, body=body,
-                          secret=secret, order=len(self.snippets))
+                          secret=secret, order=len(self.snippets), send_keys=send_keys)
         self.snippets.append(snippet)
         return snippet
 
     def update(self, sid: str, *, name: str | None = None, body: str | None = None,
-               secret: bool | None = None) -> Snippet:
+               secret: bool | None = None, send_keys: bool | None = None) -> Snippet:
         snippet = self.get(sid)
         if name is not None:
             snippet.name = name
@@ -108,6 +111,8 @@ class SnippetStore:
             snippet.body = body
         if secret is not None:
             snippet.secret = secret
+        if send_keys is not None:
+            snippet.send_keys = send_keys
         return snippet
 
     def delete(self, sid: str) -> None:

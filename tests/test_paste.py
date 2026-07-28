@@ -241,3 +241,37 @@ def test_cancel_when_idle_is_harmless():
     controller.cancel()
     assert finished == []
     assert overlay.calls == []
+
+
+def test_send_keys_flag_reaches_the_typing_engine():
+    typed = []
+    controller, _overlay, scheduler, _armed, _finished = make_controller(
+        cfg={"countdown_ms": 0}, typed_log=typed)
+    controller.start("login", "admin{tab}pw", 4321, send_keys=True)
+    scheduler.run_all()
+
+    assert typed[0][1]["send_keys"] is True
+
+
+def test_send_keys_defaults_to_off():
+    typed = []
+    controller, _overlay, scheduler, _armed, _finished = make_controller(
+        cfg={"countdown_ms": 0}, typed_log=typed)
+    controller.start("json", '{"port": 3389}', 4321)
+    scheduler.run_all()
+
+    assert typed[0][1]["send_keys"] is False
+
+
+def test_bad_token_shows_a_message_that_leaks_no_body_text():
+    controller, overlay, scheduler, _armed, finished = make_controller(
+        cfg={"countdown_ms": 0},
+        type_result=winput.TypeResult("badtoken", 0, 0, "{ctrl+hunter2} names a key ..."))
+    controller.start("login", "{ctrl+hunter2}", 4321, send_keys=True)
+    scheduler.run_all()
+
+    assert finished[0].status == "badtoken"
+    kind, message = overlay.calls[-1]
+    assert kind == "error"
+    assert message == paste.BAD_TOKEN_MESSAGE
+    assert "hunter2" not in message

@@ -21,6 +21,13 @@ UNMAPPABLE_MESSAGE = (
     "A character in the text has no key on the current keyboard layout."
 )
 
+# Deliberately generic: the offending token is part of a snippet body, which
+# may be a secret. The editor reports the exact token when the snippet is saved.
+BAD_TOKEN_MESSAGE = (
+    "A {key} token in this snippet is not valid. Open the manager and save the "
+    "snippet to see which one."
+)
+
 
 class PasteController:
     def __init__(
@@ -49,6 +56,7 @@ class PasteController:
         self._cancel = threading.Event()
         self._name = ""
         self._text = ""
+        self._send_keys = False
         self._cfg: dict = {}
         self._remaining = 0
 
@@ -58,7 +66,8 @@ class PasteController:
 
     # -- entry points ------------------------------------------------------
 
-    def start(self, name: str, text: str, target_hwnd: int) -> None:
+    def start(self, name: str, text: str, target_hwnd: int,
+              send_keys: bool = False) -> None:
         if self._busy:
             return
 
@@ -66,6 +75,7 @@ class PasteController:
         self._cancel = threading.Event()
         self._name = name
         self._text = text
+        self._send_keys = send_keys
         self._cfg = dict(self._get_config())
         self._set_armed(True)
 
@@ -116,6 +126,7 @@ class PasteController:
             method=self._cfg.get("method", "unicode"),
             newline_mode=self._cfg.get("newline_mode", "enter"),
             char_delay_ms=int(self._cfg.get("char_delay_ms", 12)),
+            send_keys=self._send_keys,
             cancel=self._cancel,
             progress=self._on_progress,
         )
@@ -134,6 +145,8 @@ class PasteController:
                 self._show_cancelled()
             elif result.status == "unmappable":
                 self._show_error(UNMAPPABLE_MESSAGE)
+            elif result.status == "badtoken":
+                self._show_error(BAD_TOKEN_MESSAGE)
             else:
                 self._show_error(result.detail or result.status)
 

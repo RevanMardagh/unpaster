@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QPushButton, QSpinBox, QTabWidget, QVBoxLayout, QWidget
 )
 
-from .. import autostart, config, hotkey
+from .. import autostart, config, hotkey, winput
 from ..store import SnippetStore
 from .palette import SECRET_MARK
 
@@ -122,6 +122,12 @@ class ManagerWindow(QMainWindow):
         self.name_edit = QLineEdit(page)
         self.body_edit = QPlainTextEdit(page)
         self.secret_check = QCheckBox("Secret (mask in lists, never shown in overlay)", page)
+        self.keys_check = QCheckBox("Send key tokens: {ctrl+a} {enter} {wait:500}, {{ for a brace", page)
+        self.keys_check.setToolTip(
+            "Off by default so bodies holding JSON or shell braces type unchanged."
+        )
+        self.snippet_status = QLabel("", page)
+        self.snippet_status.setWordWrap(True)
         self.reveal_button = QPushButton("Reveal", page)
         self.reveal_button.setCheckable(True)
         self.reveal_button.toggled.connect(self._toggle_reveal)
@@ -130,7 +136,9 @@ class ManagerWindow(QMainWindow):
         form.addRow("Name", self.name_edit)
         form.addRow("Body", self.body_edit)
         form.addRow("", self.secret_check)
+        form.addRow("", self.keys_check)
         form.addRow("", self.reveal_button)
+        form.addRow("", self.snippet_status)
 
         add_button = QPushButton("Add", page)
         save_button = QPushButton("Save", page)
@@ -186,6 +194,8 @@ class ManagerWindow(QMainWindow):
         snippet = self._store.get(self._current_id)
         self.name_edit.setText(snippet.name)
         self.secret_check.setChecked(snippet.secret)
+        self.keys_check.setChecked(snippet.send_keys)
+        self.snippet_status.setText("")
         self.reveal_button.setChecked(False)
         self._render_body(snippet.body, snippet.secret)
 
@@ -213,11 +223,23 @@ class ManagerWindow(QMainWindow):
             return
         snippet = self._store.get(self._current_id)
         secret = self.secret_check.isChecked()
+        send_keys = self.keys_check.isChecked()
         body = snippet.body
         if not self.body_edit.isReadOnly():
             body = self.body_edit.toPlainText()
+
+        if send_keys:
+            problem = winput.check_tokens(body)
+            if problem is not None:
+                # Refused here rather than at paste time: the body is on screen
+                # now, so the exact token can be named without leaking a secret
+                # into the overlay later.
+                self.snippet_status.setText(f"Not saved: {problem}")
+                return
+
+        self.snippet_status.setText("")
         self._store.update(self._current_id, name=self.name_edit.text().strip() or "unnamed",
-                           body=body, secret=secret)
+                           body=body, secret=secret, send_keys=send_keys)
         self._store.save()
         self._reload_list(select_id=self._current_id)
 

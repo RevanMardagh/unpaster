@@ -145,3 +145,40 @@ def test_valid_blob_with_bad_json_is_also_backed_up(path):
     st, warnings = store.SnippetStore.load(path)
     assert st.snippets == []
     assert len(warnings) == 1
+
+
+def test_add_defaults_to_not_sending_keys(path):
+    st, _ = store.SnippetStore.load(path)
+    assert st.add("port", "3389").send_keys is False
+
+
+def test_send_keys_round_trips(path):
+    st, _ = store.SnippetStore.load(path)
+    st.add("login", "admin{tab}pw{enter}", send_keys=True)
+    st.save()
+
+    reloaded, warnings = store.SnippetStore.load(path)
+    assert warnings == []
+    assert reloaded.snippets[0].send_keys is True
+
+
+def test_update_toggles_send_keys(path):
+    st, _ = store.SnippetStore.load(path)
+    snippet = st.add("login", "body")
+    st.update(snippet.id, send_keys=True)
+    assert st.get(snippet.id).send_keys is True
+    st.update(snippet.id, send_keys=False)
+    assert st.get(snippet.id).send_keys is False
+
+
+def test_file_written_before_send_keys_existed_loads_as_false(path):
+    import json
+
+    payload = {
+        "schema_version": 1,
+        "snippets": [{"id": "abc", "name": "old", "body": "x", "secret": False, "order": 0}],
+    }
+    path.write_bytes(dpapi.protect(json.dumps(payload).encode("utf-8"), store.ENTROPY))
+    st, warnings = store.SnippetStore.load(path)
+    assert warnings == []
+    assert st.snippets[0].send_keys is False
