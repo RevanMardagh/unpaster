@@ -44,10 +44,18 @@ def release_single_instance(handle) -> None:
 
 
 class HookBridge(QObject):
-    """Carries hook-thread events onto the Qt main thread."""
+    """Carries hook-thread and worker-thread events onto the Qt main thread.
+
+    QTimer.singleShot homes its timer to the calling thread and only fires if
+    that thread runs a Qt event loop. Neither the hook thread nor the plain
+    threading.Thread started for typing runs one, so anything posted from
+    those threads must go through a queued signal on a QObject that lives on
+    the main thread instead.
+    """
 
     hotkey_pressed = Signal()
     escape_pressed = Signal()
+    ui_call = Signal(object)
 
 
 class UnpasterApp:
@@ -67,16 +75,18 @@ class UnpasterApp:
         self.manager.hidden_to_tray = self._on_hidden_to_tray
         self.manager.test_requested = self._run_test_paste
 
+        self.bridge = HookBridge()
+        self.bridge.ui_call.connect(self._call_on_ui)
+
         self.controller = paste.PasteController(
             overlay=self.overlay,
             set_armed=self._set_armed,
             get_config=lambda: self.cfg,
             schedule=lambda delay_ms, fn: QTimer.singleShot(delay_ms, fn),
             run_async=self._run_async,
-            post_to_ui=lambda fn: QTimer.singleShot(0, fn),
+            post_to_ui=self.bridge.ui_call.emit,
         )
 
-        self.bridge = HookBridge()
         self.bridge.hotkey_pressed.connect(self._on_hotkey)
         self.bridge.escape_pressed.connect(self.controller.cancel)
 
@@ -143,7 +153,7 @@ class UnpasterApp:
     # -- paste flow --------------------------------------------------------
 
     def _on_hotkey(self) -> None:
-        if self.controller.busy:
+        if self.controller.busy or self.palette.isVisible():
             return
         self._target_hwnd = focus.get_foreground()
         self.overlay.move_to_screen_of(self._target_hwnd)
@@ -163,6 +173,12 @@ class UnpasterApp:
     @staticmethod
     def _run_async(fn) -> None:
         threading.Thread(target=fn, name="unpaster-type", daemon=True).start()
+
+    @staticmethod
+    def _call_on_ui(fn) -> None:
+        """Slot for HookBridge.ui_call: runs a callable queued from a worker
+        thread, now that Qt has delivered it on the main thread."""
+        fn()
 
     # -- settings ----------------------------------------------------------
 
