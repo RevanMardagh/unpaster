@@ -12,6 +12,10 @@ from ..store import Snippet, SnippetStore
 
 SECRET_MARK = "  \U0001F512"
 
+# A list row is normally a snippet id (a uuid4), so a NUL can never collide.
+CLIPBOARD_ID = "\x00clipboard"
+CLIPBOARD_LABEL = "Clipboard"
+
 STYLE = """
 QDialog { background: #14161c; border: 1px solid #333a48; border-radius: 10px; }
 QLineEdit {
@@ -35,16 +39,34 @@ def row_label(snippet: Snippet) -> str:
 
 
 def palette_rows(snippet_store: SnippetStore, query: str) -> list[tuple[str, str]]:
-    return [(s.id, row_label(s)) for s in snippet_store.search(query)]
+    """Snippets that match, then Clipboard -- an action, so a query never hides it."""
+    rows = [(s.id, row_label(s)) for s in snippet_store.search(query)]
+    rows.append((CLIPBOARD_ID, CLIPBOARD_LABEL))
+    return rows
+
+
+def clipboard_text() -> str:
+    """Read the host clipboard.
+
+    The no-clipboard rule is about the *target*: unpaster must never try to hand
+    text to the remote session through the clipboard, because that channel is
+    what is blocked. Reading the local clipboard as a source is the opposite --
+    it is the text the user already copied and cannot paste.
+    """
+    from PySide6.QtGui import QGuiApplication
+
+    board = QGuiApplication.clipboard()
+    return board.text() if board is not None else ""
 
 
 class PaletteWindow(QDialog):
     submitted = Signal(object)  # a paste.PasteRequest
     dismissed = Signal()
 
-    def __init__(self, snippet_store: SnippetStore) -> None:
+    def __init__(self, snippet_store: SnippetStore, read_clipboard=clipboard_text) -> None:
         super().__init__(None)
         self._store = snippet_store
+        self._read_clipboard = read_clipboard
         self._closing = False
 
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog | Qt.WindowStaysOnTopHint)
@@ -118,7 +140,11 @@ class PaletteWindow(QDialog):
         item = self.list.currentItem()
         if item is None:
             return
-        snippet = self._store.get(item.data(Qt.UserRole))
+        row_id = item.data(Qt.UserRole)
+        if row_id == CLIPBOARD_ID:
+            self._submit_clipboard()
+            return
+        snippet = self._store.get(row_id)
         self._finish()
         self.submitted.emit(PasteRequest(
             name=snippet.name,
@@ -127,6 +153,17 @@ class PaletteWindow(QDialog):
             method=snippet.method,
             newline_mode=snippet.newline_mode,
         ))
+
+    def _submit_clipboard(self) -> None:
+        # Read at submit time, not at open: whatever is on the clipboard now is
+        # what the user means.
+        text = self._read_clipboard()
+        if not text:
+            return
+        self._finish()
+        # Like free text: literal and following Settings. Clipboard content is
+        # arbitrary, so a stray brace must not become a {key} token.
+        self.submitted.emit(PasteRequest(name="clipboard", text=text))
 
     def _submit_free_text(self) -> None:
         if self._closing:

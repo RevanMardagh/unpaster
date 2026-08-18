@@ -3,6 +3,14 @@
 One entry per release, under **New**, **Changed** and **Fixed**. Sections with nothing in
 them are left out. Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### New
+
+- A **Clipboard** row at the end of the palette, which types whatever is on the local
+  clipboard. It reads the clipboard as a source only; nothing is ever handed to the session
+  through it. Like palette free text, the text is literal and follows Settings.
+
 ## 0.1.0 - 2026-07-29
 
 First release.

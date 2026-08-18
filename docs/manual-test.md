@@ -10,6 +10,8 @@ Automated tests cannot simulate a remote session. Run this list before each rele
 ## Local
 
 - [ ] Hotkey opens the palette over Notepad; the snippet types correctly.
+- [ ] Copy text on the host, then pick Clipboard in the palette; that text is typed.
+- [ ] With an empty clipboard, picking Clipboard types nothing and leaves the palette open.
 - [ ] Escape during the countdown types nothing.
 - [ ] Escape mid-typing stops partway and the overlay says cancelled.
 - [ ] Escape with no paste running reaches the focused app normally.

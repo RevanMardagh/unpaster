@@ -2,9 +2,10 @@
 
 Types stored or entered text into RDP and VNC sessions where clipboard paste does not work.
 
-Press the hotkey (Ctrl+Alt+V by default), pick a snippet or type a one-off string, and
-unpaster restores focus to the session and types it character by character. The clipboard
-is never used.
+Press the hotkey (Ctrl+Alt+V by default), pick a snippet, choose **Clipboard** to send what
+you already copied, or type a one-off string, and unpaster restores focus to the session and
+types it character by character. Nothing is ever handed to the session through the clipboard —
+that channel is the one that does not work.
 
 ## Download
 
@@ -47,7 +48,7 @@ says otherwise — useful when one target is a VNC viewer that needs the scancod
 while everything else stays on Unicode.
 
 The block opens by itself for a snippet that already uses any of it, so a non-default
-choice is never hidden. Palette free text always follows Settings.
+choice is never hidden. Palette free text and the Clipboard option always follow Settings.
 
 ## Key tokens
 
@@ -62,14 +63,17 @@ under Advanced on the snippet, then write tokens in the body:
 | `{{` | Types one literal `{`. |
 
 The toggle is per snippet and off by default, so a body holding JSON or shell braces types
-unchanged and needs no escaping. Palette free text is always literal. An unusable token is
+unchanged and needs no escaping. Palette free text and the Clipboard option are always
+literal. An unusable token is
 reported when the snippet is saved; the paste-time message stays generic because a body may
 be a secret.
 
 ## Why not just paste
 
 Clipboard redirection is often disabled by policy, blocked by the session host, or
-ignored by the remote application. unpaster sidesteps all of it by sending keystrokes.
+ignored by the remote application. unpaster sidesteps all of it by sending keystrokes. The
+palette's **Clipboard** row reads your local clipboard and types it — the copy still happens
+the usual way, only the delivery changes.
 
 ## Install from source
 
