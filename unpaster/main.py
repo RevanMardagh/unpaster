@@ -176,7 +176,8 @@ class UnpasterApp:
             return
         self._target_hwnd = focus.get_foreground()
         self.overlay.move_to_screen_of(self._target_hwnd)
-        self.palette.open_palette()
+        # The captured window is also what lends the palette its input rights.
+        self.palette.open_palette(self._target_hwnd)
 
     def _on_palette_submitted(self, request: paste.PasteRequest) -> None:
         self.controller.start(

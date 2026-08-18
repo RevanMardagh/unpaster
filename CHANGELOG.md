@@ -11,6 +11,14 @@ them are left out. Versioning follows [Semantic Versioning](https://semver.org/s
   clipboard. It reads the clipboard as a source only; nothing is ever handed to the session
   through it. Like palette free text, the text is literal and follows Settings.
 
+### Fixed
+
+- The palette now takes the keyboard when the hotkey opens it. Windows refuses
+  `SetForegroundWindow` to a process without input rights, which unpaster never has when the
+  hotkey arrives through its keyboard hook, so the palette appeared but Enter and the arrow
+  keys still went to the window behind it until it was clicked. It now borrows input rights
+  from the window that had the foreground, the same escalation the paste path already used.
+
 ## 0.1.0 - 2026-07-29
 
 First release.

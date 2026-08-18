@@ -10,6 +10,10 @@ Automated tests cannot simulate a remote session. Run this list before each rele
 ## Local
 
 - [ ] Hotkey opens the palette over Notepad; the snippet types correctly.
+- [ ] Hotkey over a full-screen RDP client: the palette has the keyboard at once, with no
+      click. Typing filters, the arrow keys move the selection, Enter types.
+- [ ] Hotkey while an elevated window is in the foreground: the palette still appears. It may
+      need a click, because an elevated thread will not share its input queue.
 - [ ] Copy text on the host, then pick Clipboard in the palette; that text is typed.
 - [ ] With an empty clipboard, picking Clipboard types nothing and leaves the palette open.
 - [ ] Escape during the countdown types nothing.

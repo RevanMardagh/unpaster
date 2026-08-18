@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout
 )
 
+from ..focus import take_foreground
 from ..paste import PasteRequest
 from ..store import Snippet, SnippetStore
 
@@ -63,10 +64,12 @@ class PaletteWindow(QDialog):
     submitted = Signal(object)  # a paste.PasteRequest
     dismissed = Signal()
 
-    def __init__(self, snippet_store: SnippetStore, read_clipboard=clipboard_text) -> None:
+    def __init__(self, snippet_store: SnippetStore, read_clipboard=clipboard_text,
+                 take_foreground=take_foreground) -> None:
         super().__init__(None)
         self._store = snippet_store
         self._read_clipboard = read_clipboard
+        self._take_foreground = take_foreground
         self._closing = False
 
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog | Qt.WindowStaysOnTopHint)
@@ -97,7 +100,16 @@ class PaletteWindow(QDialog):
 
     # -- lifecycle ---------------------------------------------------------
 
-    def open_palette(self) -> None:
+    def open_palette(self, donor_hwnd: int = 0) -> None:
+        """Show the palette with the keyboard on it.
+
+        donor_hwnd is the window that had the foreground when the hotkey fired.
+        activateWindow() alone is not enough: the hotkey arrives through a
+        low-level hook while another application is in the foreground, so this
+        process has no input rights and Windows silently declines to activate
+        the window -- it appears, but Enter and the arrow keys still go to the
+        window behind it. take_foreground() borrows the rights from donor_hwnd.
+        """
         self._closing = False
         self.search.clear()
         self.free_text.clear()
@@ -105,6 +117,7 @@ class PaletteWindow(QDialog):
         self._center_on_cursor_screen()
         self.show()
         self.raise_()
+        self._take_foreground(int(self.winId()), donor_hwnd)
         self.activateWindow()
         self.search.setFocus()
 
