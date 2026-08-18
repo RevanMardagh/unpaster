@@ -27,7 +27,7 @@ Get-FileHash unpaster.exe -Algorithm SHA256 | Select-Object -ExpandProperty Hash
 hook, so SmartScreen and some scanners flag it. Why that is unavoidable, and what to check
 instead: https://github.com/RevanMardagh/unpaster#windows-will-warn-you
 
-Settings and snippets are written to `%APPDATA%\\unpaster\\`, never beside the executable.
+Settings and snippets are written to `%APPDATA%\\unpaster\\`
 """
 
 
