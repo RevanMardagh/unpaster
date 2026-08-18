@@ -79,8 +79,10 @@ def test_a_tag_that_disagrees_with_the_version_is_caught():
 
 
 def test_main_reports_success_for_this_repository(capsys):
+    # Read the version rather than hardcoding it: this assertion is about the
+    # repository agreeing with itself, and a literal would fail every bump.
     assert check_version.main([]) == 0
-    assert "0.1.0" in capsys.readouterr().out
+    assert check_version.pyproject_version() in capsys.readouterr().out
 
 
 def test_main_fails_on_a_bad_tag(capsys):
