@@ -106,6 +106,9 @@ The frozen entry point is `run_unpaster.py`, not `unpaster/main.py`: PyInstaller
 entry module as `__main__` with no package context, so the package's relative imports
 would fail if `main.py` were used directly.
 
+`docs/releasing.md` covers the build in full, plus how a version bump, a tag push and the
+release workflow turn into a published binary.
+
 ## Storage and secrets
 
 Snippets live in `%APPDATA%\unpaster\snippets.dat`, encrypted with Windows DPAPI under
