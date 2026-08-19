@@ -13,6 +13,17 @@ from ..store import Snippet, SnippetStore
 
 SECRET_MARK = "  \U0001F512"
 
+# The preview pane clips instead of scrolling, so the dialog keeps one height
+# whatever is highlighted -- a popup that jumps as you arrow through it is
+# worse than a truncated line.
+PREVIEW_LINES = 5
+PREVIEW_COLS = 52
+ELLIPSIS = "…"
+MASK_CHAR = "•"
+MASK_CAP = 24  # a mask as long as the secret would leak its length by width
+EMPTY_PREVIEW = "(empty)"
+EMPTY_CLIPBOARD_PREVIEW = "(clipboard is empty)"
+
 # A list row is normally a snippet id (a uuid4), so a NUL can never collide.
 CLIPBOARD_ID = "\x00clipboard"
 CLIPBOARD_LABEL = "Clipboard"
@@ -31,12 +42,70 @@ QListWidget {
 QListWidget::item { padding: 5px 8px; }
 QListWidget::item:selected { background: #2b4f6b; color: #ffffff; }
 QLabel { color: #969eaf; font-size: 11px; }
+QLabel#preview {
+    background: #1c1f27; color: #b9c2d4; border: 1px solid #333a48;
+    border-radius: 6px; padding: 6px 8px;
+    font-family: Consolas, "Courier New", monospace; font-size: 12px;
+}
 """
 
 
 def row_label(snippet: Snippet) -> str:
     """Name only. The body may be a secret and is never rendered here."""
     return snippet.name + (SECRET_MARK if snippet.secret else "")
+
+
+def clip_preview(text: str) -> str:
+    """The head of text, wrapped to the pane and clipped to its rows.
+
+    Long lines wrap instead of being cut: a one-line body would otherwise show
+    its first PREVIEW_COLS characters and leave the rest of the pane blank.
+    Wrapping is by character, not by word -- a body here is as likely to be a
+    path, a key or a connection string as prose, and those have no useful word
+    boundaries.
+
+    Whatever does not fit is marked in the last row, never on a row of its own:
+    the pane is exactly PREVIEW_LINES rows tall, so an extra row would be
+    clipped off and a cut preview would look like the whole body.
+    """
+    if not text.strip():
+        return EMPTY_PREVIEW
+    rows: list[str] = []
+    clipped = False
+    for line in text.splitlines():
+        for chunk in _wrap(line):
+            if len(rows) == PREVIEW_LINES:
+                clipped = True
+                break
+            rows.append(chunk)
+        if clipped:
+            break
+    if clipped:
+        rows[-1] = rows[-1][:PREVIEW_COLS - 1] + ELLIPSIS
+    return "\n".join(rows)
+
+
+def _wrap(line: str) -> list[str]:
+    if not line:
+        return [""]  # a blank line in the body is a blank row in the pane
+    return [line[at:at + PREVIEW_COLS] for at in range(0, len(line), PREVIEW_COLS)]
+
+
+def masked_preview(body: str) -> str:
+    """Dots and a character count, built from the length alone.
+
+    Nothing here is derived from the body's characters, so a shoulder over the
+    screen learns only how long the secret is -- enough to tell two stored
+    secrets apart, which is what the preview is for.
+    """
+    if not body:
+        return EMPTY_PREVIEW
+    unit = "char" if len(body) == 1 else "chars"
+    return f"{MASK_CHAR * min(len(body), MASK_CAP)}  ({len(body)} {unit})"
+
+
+def preview_text(snippet: Snippet) -> str:
+    return masked_preview(snippet.body) if snippet.secret else clip_preview(snippet.body)
 
 
 def palette_rows(snippet_store: SnippetStore, query: str) -> list[tuple[str, str]]:
@@ -81,6 +150,12 @@ class PaletteWindow(QDialog):
         self.search.setPlaceholderText("search snippets")
         self.list = QListWidget(self)
         self.list.setFixedHeight(190)
+        self.preview = QLabel(self)
+        self.preview.setObjectName("preview")
+        self.preview.setFixedHeight(92)
+        self.preview.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.preview.setWordWrap(False)  # clip_preview already fits the width
+        self.preview.setTextInteractionFlags(Qt.NoTextInteraction)
         self.free_text = QLineEdit(self)
         self.free_text.setPlaceholderText("or type one-off text here")
         hint = QLabel("Enter types the selection · Tab switches · Esc cancels", self)
@@ -90,6 +165,7 @@ class PaletteWindow(QDialog):
         layout.setSpacing(8)
         layout.addWidget(self.search)
         layout.addWidget(self.list)
+        layout.addWidget(self.preview)
         layout.addWidget(self.free_text)
         layout.addWidget(hint)
 
@@ -97,6 +173,7 @@ class PaletteWindow(QDialog):
         self.search.returnPressed.connect(self._submit_selected)
         self.free_text.returnPressed.connect(self._submit_free_text)
         self.list.itemActivated.connect(lambda _item: self._submit_selected())
+        self.list.currentItemChanged.connect(lambda *_: self._update_preview())
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -144,6 +221,22 @@ class PaletteWindow(QDialog):
             self.list.addItem(item)
         if self.list.count():
             self.list.setCurrentRow(0)
+        self._update_preview()
+
+    def _update_preview(self) -> None:
+        """Show what the highlighted row would type."""
+        item = self.list.currentItem()
+        if item is None:
+            self.preview.setText("")
+            return
+        row_id = item.data(Qt.UserRole)
+        if row_id == CLIPBOARD_ID:
+            # A second read, and still not a delivery channel: this is the host
+            # clipboard as a source. Submit re-reads, so the preview is advisory.
+            text = self._read_clipboard()
+            self.preview.setText(clip_preview(text) if text else EMPTY_CLIPBOARD_PREVIEW)
+            return
+        self.preview.setText(preview_text(self._store.get(row_id)))
 
     # -- submission --------------------------------------------------------
 
@@ -198,7 +291,9 @@ class PaletteWindow(QDialog):
             self._finish()
             self.dismissed.emit()
             return
-        if key in (Qt.Key_Down, Qt.Key_Up) and self.search.hasFocus() and self.list.count():
+        # focusWidget, not hasFocus: hasFocus also demands an active window, which
+        # the offscreen platform never gives, so this branch would be untestable.
+        if key in (Qt.Key_Down, Qt.Key_Up) and self.focusWidget() is self.search                 and self.list.count():
             step = 1 if key == Qt.Key_Down else -1
             row = (self.list.currentRow() + step) % self.list.count()
             self.list.setCurrentRow(row)

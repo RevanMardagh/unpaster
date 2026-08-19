@@ -3,6 +3,16 @@
 One entry per release, under **New**, **Changed** and **Fixed**. Sections with nothing in
 them are left out. Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### New
+
+- A preview pane under the palette list, showing what the highlighted row would type. Long
+  lines wrap and the pane clips rather than scrolls, so the palette keeps one height
+  whatever is highlighted. A secret shows dots and its character count -- enough to tell
+  two stored secrets apart, without putting the body on screen. The Clipboard row previews
+  the current clipboard; submitting still re-reads it.
+
 ## 0.1.1 - 2026-08-18
 
 ### New
