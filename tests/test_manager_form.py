@@ -71,5 +71,6 @@ def test_config_to_form_exposes_every_editable_setting():
     form = manager.config_to_form(config.DEFAULTS)
     assert set(form) == {
         "hotkey", "countdown_ms", "char_delay_ms", "method",
-        "newline_mode", "overlay_enabled", "close_to_tray", "autostart",
+        "newline_mode", "overlay_enabled", "palette_preview", "close_to_tray",
+        "autostart",
     }

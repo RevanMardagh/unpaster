@@ -12,6 +12,9 @@ them are left out. Versioning follows [Semantic Versioning](https://semver.org/s
   whatever is highlighted. A secret shows dots and its character count -- enough to tell
   two stored secrets apart, without putting the body on screen. The Clipboard row previews
   the current clipboard; submitting still re-reads it.
+- A **Preview the highlighted snippet** setting, on by default. Turned off, the palette is
+  what it was before the pane existed: no preview, the old height, and the clipboard read
+  only when the Clipboard row is submitted.
 
 ## 0.1.1 - 2026-08-18
 

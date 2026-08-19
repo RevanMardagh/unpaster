@@ -87,7 +87,7 @@ class UnpasterApp:
         self._target_hwnd = 0
 
         self.overlay = OverlayWindow()
-        self.palette = PaletteWindow(self.store)
+        self.palette = PaletteWindow(self.store, get_config=lambda: self.cfg)
         self.manager = ManagerWindow(self.store, self.cfg,
                                      on_config_changed=self._apply_config,
                                      on_quit=self.quit)

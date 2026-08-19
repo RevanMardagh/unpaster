@@ -16,6 +16,8 @@ Automated tests cannot simulate a remote session. Run this list before each rele
       need a click, because an elevated thread will not share its input queue.
 - [ ] Arrowing through the palette previews each snippet; the secret one shows dots and a
       character count, never its body. The palette does not change height as you move.
+- [ ] Turning off Preview the highlighted snippet and reopening the palette: no pane, and the
+      palette is back to its old height. The Clipboard row still types the clipboard.
 - [ ] Copy text on the host, then pick Clipboard in the palette; that text is typed.
 - [ ] With an empty clipboard, picking Clipboard types nothing and leaves the palette open.
 - [ ] Escape during the countdown types nothing.

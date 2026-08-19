@@ -106,6 +106,14 @@ def test_on_hotkey_ignores_repeat_while_palette_is_visible(unpaster):
     assert unpaster._target_hwnd == sentinel_hwnd
 
 
+def test_the_palette_follows_the_live_config(unpaster):
+    """A getter, not a copy of the dict: _apply_config rebinds self.cfg, so a
+    palette holding the old dict would ignore the setting until a restart."""
+    unpaster.cfg = dict(unpaster.cfg, palette_preview=False)
+
+    assert unpaster.palette._config()["palette_preview"] is False
+
+
 def test_windows_get_the_drawn_icon(unpaster, app):
     """Without an application icon, Qt gives windows a blank titlebar icon and
     the taskbar falls back to the interpreter's own icon."""

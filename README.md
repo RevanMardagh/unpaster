@@ -76,7 +76,8 @@ palette's **Clipboard** row reads your local clipboard and types it — the copy
 the usual way, only the delivery changes.
 
 The palette previews the highlighted row so you can see what is about to be typed. A snippet
-marked secret previews as dots and a character count; its body never appears on screen.
+marked secret previews as dots and a character count; its body never appears on screen. Turn
+the pane off with **Preview the highlighted snippet** in Settings.
 
 ## Install from source
 

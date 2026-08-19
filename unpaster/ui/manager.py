@@ -22,10 +22,16 @@ FOLLOW_SETTINGS = ""
 
 EDITABLE_KEYS = (
     "hotkey", "countdown_ms", "char_delay_ms", "method",
-    "newline_mode", "overlay_enabled", "close_to_tray", "autostart",
+    "newline_mode", "overlay_enabled", "palette_preview", "close_to_tray",
+    "autostart",
 )
 
 MASK = "•" * 12
+
+PALETTE_PREVIEW_TOOLTIP = (
+    "Shows what the highlighted palette row would type. A snippet marked secret shows "
+    "dots and a character count, never its body."
+)
 
 CLOSE_TO_TRAY_TOOLTIP = (
     "When off, closing this window quits unpaster entirely and the hotkey stops working."
@@ -395,6 +401,10 @@ class ManagerWindow(QMainWindow):
         self.overlay_check = QCheckBox("Show overlay", page)
         self.overlay_check.setChecked(form_values["overlay_enabled"])
 
+        self.palette_preview_check = QCheckBox("Preview the highlighted snippet", page)
+        self.palette_preview_check.setChecked(form_values["palette_preview"])
+        self.palette_preview_check.setToolTip(PALETTE_PREVIEW_TOOLTIP)
+
         self.tray_check = QCheckBox("Close button minimizes to tray", page)
         self.tray_check.setChecked(form_values["close_to_tray"])
         self.tray_check.setToolTip(CLOSE_TO_TRAY_TOOLTIP)
@@ -419,6 +429,7 @@ class ManagerWindow(QMainWindow):
         form.addRow("Type method", self.method_combo)
         form.addRow("Newline handling", self.newline_combo)
         form.addRow("", self.overlay_check)
+        form.addRow("", self.palette_preview_check)
         form.addRow("", self.tray_check)
         form.addRow("", self.autostart_check)
         form.addRow("Test", test_row)
@@ -447,6 +458,7 @@ class ManagerWindow(QMainWindow):
             "method": self.method_combo.currentData(),
             "newline_mode": self.newline_combo.currentData(),
             "overlay_enabled": self.overlay_check.isChecked(),
+            "palette_preview": self.palette_preview_check.isChecked(),
             "close_to_tray": self.tray_check.isChecked(),
             "autostart": self.autostart_check.isChecked(),
         }
@@ -459,6 +471,7 @@ class ManagerWindow(QMainWindow):
         self.method_combo.setCurrentIndex(config.METHODS.index(values["method"]))
         self.newline_combo.setCurrentIndex(config.NEWLINE_MODES.index(values["newline_mode"]))
         self.overlay_check.setChecked(values["overlay_enabled"])
+        self.palette_preview_check.setChecked(values["palette_preview"])
         self.tray_check.setChecked(values["close_to_tray"])
         self.autostart_check.setChecked(values["autostart"])
 

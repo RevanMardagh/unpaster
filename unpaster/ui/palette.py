@@ -134,11 +134,14 @@ class PaletteWindow(QDialog):
     dismissed = Signal()
 
     def __init__(self, snippet_store: SnippetStore, read_clipboard=clipboard_text,
-                 take_foreground=take_foreground) -> None:
+                 take_foreground=take_foreground, get_config=dict) -> None:
         super().__init__(None)
         self._store = snippet_store
         self._read_clipboard = read_clipboard
         self._take_foreground = take_foreground
+        # A getter, not the dict: applying Settings rebinds the config, so a
+        # palette holding the old dict would need a restart to see a change.
+        self._config = get_config
         self._closing = False
 
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog | Qt.WindowStaysOnTopHint)
@@ -190,6 +193,8 @@ class PaletteWindow(QDialog):
         self._closing = False
         self.search.clear()
         self.free_text.clear()
+        # Read at open, not at build: Settings can change between two opens.
+        self.preview.setVisible(self._preview_enabled())
         self._refresh("")
         self._center_on_cursor_screen()
         self.show()
@@ -223,8 +228,17 @@ class PaletteWindow(QDialog):
             self.list.setCurrentRow(0)
         self._update_preview()
 
+    def _preview_enabled(self) -> bool:
+        return bool(self._config().get("palette_preview", True))
+
     def _update_preview(self) -> None:
         """Show what the highlighted row would type."""
+        if not self._preview_enabled():
+            # Nothing is rendered, so nothing is read either: with the pane off
+            # the clipboard is touched at submit only, as it was before the
+            # pane existed.
+            self.preview.setText("")
+            return
         item = self.list.currentItem()
         if item is None:
             self.preview.setText("")

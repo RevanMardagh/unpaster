@@ -19,6 +19,7 @@ DEFAULTS: dict = {
     "method": "unicode",
     "newline_mode": "enter",
     "overlay_enabled": True,
+    "palette_preview": True,
     "close_to_tray": True,
     "autostart": False,
 }
@@ -51,7 +52,7 @@ def _validate_field(key: str, value: object) -> bool:
         return value in METHODS
     if key == "newline_mode":
         return value in NEWLINE_MODES
-    if key in ("overlay_enabled", "close_to_tray", "autostart"):
+    if key in ("overlay_enabled", "palette_preview", "close_to_tray", "autostart"):
         return isinstance(value, bool)
     return True
 

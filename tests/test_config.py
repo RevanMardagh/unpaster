@@ -12,9 +12,16 @@ def test_defaults_match_spec():
         "method": "unicode",
         "newline_mode": "enter",
         "overlay_enabled": True,
+        "palette_preview": True,
         "close_to_tray": True,
         "autostart": False,
     }
+
+
+def test_validate_rejects_a_non_bool_palette_preview():
+    cfg, warnings = config.validate({"palette_preview": "off"})
+    assert cfg["palette_preview"] is True
+    assert len(warnings) == 1
 
 
 def test_validate_empty_returns_defaults():
